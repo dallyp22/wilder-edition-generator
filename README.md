@@ -1,36 +1,114 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Wilder Seasons Edition Generator
 
-## Getting Started
+AI-powered city research tool that generates family-friendly place databases for Wilder Seasons city editions. Transforms city expansion from months of manual research to minutes.
 
-First, run the development server:
+## Features
+
+- **Template Selection** — Automatically matches cities to Lincoln, Omaha, Des Moines, or USA edition templates based on population, region, and climate
+- **Place Discovery** — Searches 7 categories (Nature, Farms, Libraries, Museums, Indoor Play, Gardens, Seasonal) using Brave Search API
+- **Data Enrichment** — Enriches places with Google Places API (ratings, addresses, hours, pricing)
+- **Brand Validation** — Scores each place 0-100 against Wilder Seasons brand criteria (accessibility, nature connection, family friendliness, local authenticity)
+- **Icon Key System** — Assigns pricing, age appropriateness, and seasonality icons
+- **Excel Export** — Generates formatted XLSX with 5 sheets (Master List, Category Summary, Review Queue, Rejection Log, Icon Key)
+
+## Quick Start
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) and click **Generate (Demo)** to see sample output without any API keys.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## API Keys (for Live Mode)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Copy `.env.example` to `.env.local` and add your keys:
 
-## Learn More
+```bash
+cp .env.example .env.local
+```
 
-To learn more about Next.js, take a look at the following resources:
+| Key | Required | Purpose |
+|-----|----------|---------|
+| `BRAVE_API_KEY` | For live mode | Place discovery via Brave Search |
+| `GOOGLE_PLACES_API_KEY` | Optional | Enrichment (ratings, addresses, hours) |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deploy to Vercel
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_USERNAME/wilder-edition-generator-web)
 
-## Deploy on Vercel
+1. Push to GitHub
+2. Import the repository in [Vercel](https://vercel.com)
+3. Add environment variables (`BRAVE_API_KEY`, `GOOGLE_PLACES_API_KEY`) in project settings
+4. Deploy
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Project Structure
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+src/
+├── app/
+│   ├── api/
+│   │   ├── generate/route.ts   # Main pipeline endpoint
+│   │   └── export/route.ts     # Excel export endpoint
+│   ├── layout.tsx
+│   ├── page.tsx                # Main UI
+│   └── globals.css
+├── components/
+│   ├── CityInput.tsx           # City/state input form
+│   ├── PipelineProgress.tsx    # Step-by-step progress
+│   ├── TemplateCard.tsx        # Template selection display
+│   ├── SummaryCards.tsx        # Status summary cards
+│   ├── ResultsTable.tsx        # Sortable/filterable results
+│   └── ExportButton.tsx        # Excel download button
+└── lib/
+    ├── agents/
+    │   ├── template-selector.ts  # City-to-template matching
+    │   ├── research-agent.ts     # Brave Search discovery
+    │   ├── places-enricher.ts    # Google Places enrichment
+    │   ├── brand-validator.ts    # Brand scoring (0-100)
+    │   ├── icon-applicator.ts    # Icon key assignment
+    │   └── sample-data.ts        # Demo data generator
+    ├── config/
+    │   ├── templates.ts          # Edition templates
+    │   ├── categories.ts         # Place categories
+    │   └── brand-criteria.ts     # Scoring rules + icon key
+    ├── types/
+    │   └── index.ts              # TypeScript interfaces
+    └── utils/
+        └── excel-export.ts       # XLSX generation
+```
+
+## Brand Scoring
+
+Places are scored on 4 weighted criteria:
+
+| Criteria | Weight | What it measures |
+|----------|--------|-----------------|
+| Accessibility | 30% | Price (FREE = 100, $15+ = 20) |
+| Nature Connection | 25% | Outdoor focus, nature keywords |
+| Family Friendliness | 25% | Age-appropriate, family programs |
+| Local Authenticity | 20% | Locally owned, community rooted |
+
+**Statuses:** RECOMMENDED (80+), CONSIDER (60-79), REVIEW (40-59), REJECT (<40)
+
+## Icon Key
+
+| Icon | Meaning |
+|------|---------|
+| 🔷 | FREE admission |
+| 💲 | $5-$10/person |
+| 💲💲 | $10-$15/person |
+| 💲💲💲 | $15+/person |
+| 👶 | Baby-friendly (0-12mo) |
+| 🧒 | Toddler-safe (1-3yr) |
+| 👦 | Preschool+ (3-5yr) |
+| ☀️ | Warm weather |
+| ❄️ | Winter spot |
+
+## Tech Stack
+
+- **Next.js 16** with App Router
+- **TypeScript**
+- **Tailwind CSS**
+- **SheetJS (xlsx)** for Excel generation
+- **Lucide React** for icons
