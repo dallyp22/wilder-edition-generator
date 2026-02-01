@@ -113,6 +113,16 @@ export const CATEGORIES: CategoryConfig[] = [
   },
 ];
 
+export const CATEGORY_GUIDANCE: Record<string, string> = {
+  nature: "Focus on public parks, nature preserves, hiking trails, nature centers, arboretums, lakes, and wildlife areas. Include both large flagship parks and smaller neighborhood gems with stroller-friendly paths.",
+  farm: "Focus on family farms, petting zoos, u-pick orchards, pumpkin patches, ranches with tours, dairy farms, and agricultural education centers. Prioritize places where kids can interact with animals.",
+  library: "Focus on public library branches with strong children's programs, storytimes, maker spaces, summer reading programs. Include the main library and notable branch locations.",
+  museum: "Focus on children's museums, science centers, discovery museums, natural history museums, and hands-on educational exhibits. Avoid art-only galleries without kid engagement.",
+  indoor_play: "Focus on locally-owned indoor play spaces, art studios, pottery studios, creative cafes, play cafes, gymnastics centers, and maker spaces. NO chains like Sky Zone or Urban Air.",
+  garden: "Focus on botanical gardens, community gardens, farmers markets, greenhouses, local bakeries, ice cream shops, and family-friendly local restaurants with garden settings.",
+  seasonal: "Focus on annual festivals, holiday events, seasonal markets, community celebrations, light displays, Easter events, harvest festivals, and recurring seasonal traditions in the area.",
+};
+
 export const CATEGORY_LABELS: Record<string, string> = {
   nature: "Nature Trails & Outdoor Exploration",
   farm: "Farms & Animal Encounters",

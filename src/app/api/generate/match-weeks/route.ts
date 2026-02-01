@@ -1,4 +1,4 @@
-import { aiMatchWeeks } from "@/lib/agents/ai-researcher";
+import { matchWeeks } from "@/lib/agents/week-matcher";
 import { TemplateVersion } from "@/lib/config/weekly-themes";
 
 export const runtime = "edge";
@@ -16,14 +16,7 @@ export async function POST(request: Request) {
     const anthropicKey = process.env.ANTHROPIC_API_KEY;
     const openaiKey = process.env.OPENAI_API_KEY;
 
-    if (!anthropicKey && !openaiKey) {
-      return Response.json(
-        { error: "No AI API keys configured (need ANTHROPIC_API_KEY or OPENAI_API_KEY)" },
-        { status: 400 }
-      );
-    }
-
-    const weekMatches = await aiMatchWeeks(
+    const weekMatches = await matchWeeks(
       places,
       templateVersion as TemplateVersion,
       city,
@@ -33,8 +26,8 @@ export async function POST(request: Request) {
 
     return Response.json({ weekMatches });
   } catch (err) {
-    console.error("AI week matching error:", err);
-    const message = err instanceof Error ? err.message : "AI week matching failed";
+    console.error("Week matching error:", err);
+    const message = err instanceof Error ? err.message : "Week matching failed";
     return Response.json({ error: message }, { status: 500 });
   }
 }

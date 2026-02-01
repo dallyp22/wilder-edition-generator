@@ -15,11 +15,11 @@ import { Leaf, RotateCcw } from "lucide-react";
 
 const INITIAL_STEPS: StepProgress[] = [
   { step: "template", label: "Template Selection", status: "pending" },
-  { step: "research", label: "AI Place Discovery (7 categories)", status: "pending" },
-  { step: "enrich", label: "Google Places Enrichment", status: "pending" },
-  { step: "validate", label: "Brand Validation", status: "pending" },
-  { step: "icons", label: "Icon Assignment", status: "pending" },
-  { step: "match", label: "AI Week Matching", status: "pending" },
+  { step: "discover", label: "Multi-Source Discovery (7 categories)", status: "pending" },
+  { step: "curate", label: "AI Curation (Claude reviews places)", status: "pending" },
+  { step: "enrich", label: "Google Places Validation", status: "pending" },
+  { step: "validate", label: "Brand Scoring + Icons", status: "pending" },
+  { step: "match", label: "Week Matching + Anti-Repeat", status: "pending" },
   { step: "complete", label: "Compilation", status: "pending" },
 ];
 
@@ -96,7 +96,6 @@ export default function Home() {
   };
 
   const runDemoMode = async (inputCity: string, inputState: string) => {
-    // Demo uses the single endpoint (fast, no external APIs)
     updateStep("template", "running", "Analyzing city characteristics...");
     await delay(300);
 
@@ -107,10 +106,10 @@ export default function Home() {
     });
 
     updateStep("template", "completed");
-    updateStep("research", "completed", "Sample data loaded");
+    updateStep("discover", "completed", "Sample data loaded");
+    updateStep("curate", "completed", "Sample data pre-curated");
     updateStep("enrich", "completed", "Sample data pre-enriched");
-    updateStep("validate", "completed", "Brand validation complete");
-    updateStep("icons", "completed", "Icons applied");
+    updateStep("validate", "completed", "Brand scoring complete");
     updateStep("complete", "completed", `${data.places.length} places compiled`);
 
     setTemplate(data.templateSelection);
@@ -128,69 +127,87 @@ export default function Home() {
     setTemplate(templateData.templateSelection);
     updateStep("template", "completed", templateData.templateSelection.primaryTemplate);
 
-    // Step 2: AI Research — fire all 7 categories in parallel
-    updateStep("research", "running", "AI is discovering places (7 categories in parallel)...");
+    // Step 2: Multi-Source Discovery — Brave + Gemini, 7 categories in parallel
+    updateStep("discover", "running", "Searching Brave + Gemini for real places...");
     let completedCategories = 0;
 
-    const categoryPromises = CATEGORIES.map(async (cat) => {
+    const discoveryPromises = CATEGORIES.map(async (cat) => {
       try {
-        const resData = await apiCall("/api/generate/ai-research", {
+        const resData = await apiCall("/api/generate/discover", {
           city: inputCity,
           state: inputState,
           category: cat.id,
         });
         completedCategories++;
         updateStep(
-          "research",
+          "discover",
           "running",
-          `${completedCategories}/${CATEGORIES.length} categories complete...`
+          `${completedCategories}/${CATEGORIES.length} categories searched...`
         );
         return resData.places || [];
       } catch (err) {
-        console.error(`AI research failed for ${cat.id}:`, err);
+        console.error(`Discovery failed for ${cat.id}:`, err);
         completedCategories++;
-        updateStep(
-          "research",
-          "running",
-          `${completedCategories}/${CATEGORIES.length} categories (some errors)...`
-        );
         return [];
       }
     });
 
-    const results = await Promise.all(categoryPromises);
-    let allPlaces: Partial<Place>[] = results.flat();
+    const discoveryResults = await Promise.all(discoveryPromises);
+    let rawPlaces = discoveryResults.flat();
 
-    // Deduplicate
+    // Deduplicate across categories
     const seen = new Set<string>();
-    allPlaces = allPlaces.filter((p) => {
+    rawPlaces = rawPlaces.filter((p: { name?: string }) => {
       const key = (p.name || "").toLowerCase().replace(/[^a-z]/g, "");
       if (!key || seen.has(key)) return false;
       seen.add(key);
       return true;
     });
 
-    updateStep("research", "completed", `${allPlaces.length} places discovered by AI`);
+    updateStep("discover", "completed", `${rawPlaces.length} places found from web search`);
 
-    // Step 3: Enrich in batches of 3 (validates AI suggestions via Google Places)
+    // Step 3: AI Curation — Claude reviews all discovered places
+    updateStep("curate", "running", `Claude is reviewing ${rawPlaces.length} places...`);
+    let curatedPlaces: Partial<Place>[];
+    try {
+      const curationData = await apiCall("/api/generate/curate", {
+        city: inputCity,
+        state: inputState,
+        rawPlaces,
+      });
+      curatedPlaces = curationData.places || [];
+      updateStep("curate", "completed", `${curatedPlaces.length} places accepted by Claude`);
+    } catch (err) {
+      console.error("Curation failed:", err);
+      updateStep("curate", "completed", "Curation skipped — using raw results");
+      curatedPlaces = rawPlaces.map((p: { name: string; category: string; snippet: string; sourceUrl: string }) => ({
+        name: p.name,
+        category: p.category as Place["category"],
+        shortDescription: (p.snippet || "").slice(0, 100),
+        city: inputCity,
+        state: inputState,
+        sourceUrl: p.sourceUrl || "",
+        validationStatus: "REVIEW" as const,
+      }));
+    }
+
+    // Step 4: Google Places Validation (batched enrichment)
     updateStep("enrich", "running", "Validating with Google Places...");
     const BATCH_SIZE = 3;
     const enrichedPlaces: Partial<Place>[] = [];
 
-    for (let i = 0; i < allPlaces.length; i += BATCH_SIZE) {
-      const batch = allPlaces.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < curatedPlaces.length; i += BATCH_SIZE) {
+      const batch = curatedPlaces.slice(i, i + BATCH_SIZE);
       const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-      const totalBatches = Math.ceil(allPlaces.length / BATCH_SIZE);
+      const totalBatches = Math.ceil(curatedPlaces.length / BATCH_SIZE);
       updateStep(
         "enrich",
         "running",
-        `Validating batch ${batchNum}/${totalBatches} (${Math.min(i + BATCH_SIZE, allPlaces.length)}/${allPlaces.length} places)...`
+        `Validating batch ${batchNum}/${totalBatches} (${Math.min(i + BATCH_SIZE, curatedPlaces.length)}/${curatedPlaces.length})...`
       );
 
       try {
-        const enrichData = await apiCall("/api/generate/enrich", {
-          places: batch,
-        });
+        const enrichData = await apiCall("/api/generate/enrich", { places: batch });
         enrichedPlaces.push(...(enrichData.places || batch));
       } catch (err) {
         console.error(`Enrichment failed for batch ${batchNum}:`, err);
@@ -200,29 +217,26 @@ export default function Home() {
 
     updateStep("enrich", "completed", `${enrichedPlaces.length} places validated`);
 
-    // Step 4 & 5: Validate + Icons (single call, pure logic, instant)
-    updateStep("validate", "running", "Scoring brand alignment...");
-    const finalData = await apiCall("/api/generate/finalize", {
-      places: enrichedPlaces,
-    });
-    updateStep("validate", "completed", "Brand validation complete");
-    updateStep("icons", "completed", "Icons applied");
+    // Step 5: Brand Scoring + Icons (instant)
+    updateStep("validate", "running", "Scoring brand alignment + applying icons...");
+    const finalData = await apiCall("/api/generate/finalize", { places: enrichedPlaces });
+    updateStep("validate", "completed", `${finalData.summary.recommended} recommended, ${finalData.summary.consider} consider`);
 
     setPlaces(finalData.places);
 
-    // Step 6: AI Week Matching
-    updateStep("match", "running", "AI is matching places to 52 weekly themes...");
+    // Step 6: AI Week Matching + Anti-Repeat Enforcement
+    updateStep("match", "running", "AI matching + enforcing anti-repeat (max 2 uses per place)...");
     try {
-      const matchData = await apiCall("/api/generate/ai-match-weeks", {
+      const matchData = await apiCall("/api/generate/match-weeks", {
         places: finalData.places,
         templateVersion: selectedTemplate,
         city: inputCity,
       });
       setWeekMatches(matchData.weekMatches || []);
-      updateStep("match", "completed", `${(matchData.weekMatches || []).length} weeks matched`);
+      updateStep("match", "completed", `52 weeks matched (anti-repeat enforced)`);
     } catch (err) {
-      console.error("AI week matching failed:", err);
-      updateStep("match", "completed", "Week matching skipped (using fallback)");
+      console.error("Week matching failed:", err);
+      updateStep("match", "completed", "Week matching skipped (using keyword fallback)");
     }
 
     updateStep(

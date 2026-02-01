@@ -1,4 +1,4 @@
-import { aiResearchCategory } from "@/lib/agents/ai-researcher";
+import { discoverCategory } from "@/lib/agents/discovery-agent";
 import { PlaceCategory } from "@/lib/types";
 
 export const runtime = "edge";
@@ -13,28 +13,28 @@ export async function POST(request: Request) {
       );
     }
 
-    const anthropicKey = process.env.ANTHROPIC_API_KEY;
-    const openaiKey = process.env.OPENAI_API_KEY;
+    const braveKey = process.env.BRAVE_API_KEY;
+    const geminiKey = process.env.GEMINI_API_KEY;
 
-    if (!anthropicKey && !openaiKey) {
+    if (!braveKey && !geminiKey) {
       return Response.json(
-        { error: "No AI API keys configured (need ANTHROPIC_API_KEY or OPENAI_API_KEY)" },
+        { error: "Need at least one discovery API key (BRAVE_API_KEY or GEMINI_API_KEY)" },
         { status: 400 }
       );
     }
 
-    const places = await aiResearchCategory(
+    const places = await discoverCategory(
       city,
       state,
       category as PlaceCategory,
-      anthropicKey,
-      openaiKey
+      braveKey,
+      geminiKey
     );
 
     return Response.json({ places, category });
   } catch (err) {
-    console.error("AI research error:", err);
-    const message = err instanceof Error ? err.message : "AI research failed";
+    console.error("Discovery error:", err);
+    const message = err instanceof Error ? err.message : "Discovery failed";
     return Response.json({ error: message }, { status: 500 });
   }
 }

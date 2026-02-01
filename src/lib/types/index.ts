@@ -84,10 +84,10 @@ export type PipelineStatus =
 
 export type PipelineStep =
   | "template"
-  | "research"
+  | "discover"
+  | "curate"
   | "enrich"
   | "validate"
-  | "icons"
   | "match"
   | "complete";
 
@@ -97,6 +97,14 @@ export interface WeekMatch {
   reason: string;
   alternateName: string;
   alternateReason: string;
+}
+
+export interface RawDiscoveryPlace {
+  name: string;
+  source: "brave" | "gemini";
+  sourceUrl: string;
+  snippet: string;
+  category: PlaceCategory;
 }
 
 export interface StepProgress {
