@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import { Place, PlaceCategory } from "@/lib/types";
 import { CATEGORY_LABELS } from "@/lib/config/categories";
+import { TemplateVersion, WEEKLY_THEMES, TEMPLATE_VERSION_LABELS, getSeason } from "@/lib/config/weekly-themes";
 
 function priceTierDisplay(tier: string): string {
   switch (tier) {
@@ -17,10 +18,53 @@ function priceTierDisplay(tier: string): string {
   }
 }
 
+function findBestMatch(
+  theme: { week: number; title: string; referencePlaceNote: string },
+  places: Partial<Place>[]
+): Partial<Place> | null {
+  const title = theme.title.toLowerCase();
+  const ref = theme.referencePlaceNote.toLowerCase();
+
+  const scored = places
+    .filter((p) => p.validationStatus !== "REJECT")
+    .map((p) => {
+      let score = 0;
+      const name = (p.name || "").toLowerCase();
+      const cat = (p.category || "").toLowerCase();
+
+      if (p.weekSuggestions?.includes(theme.week)) score += 100;
+      if (title.includes("farm") && cat === "farm") score += 30;
+      if (title.includes("garden") && (cat === "garden" || cat === "nature")) score += 30;
+      if (title.includes("zoo") && (cat === "farm" || name.includes("zoo"))) score += 30;
+      if (title.includes("library") && cat === "library") score += 30;
+      if (title.includes("museum") && cat === "museum") score += 30;
+      if ((title.includes("craft") || title.includes("art") || title.includes("play")) && cat === "indoor_play") score += 30;
+      if (title.includes("nature") || title.includes("trail") || title.includes("prairie")) {
+        if (cat === "nature") score += 25;
+      }
+      if ((title.includes("pumpkin") || title.includes("halloween") || title.includes("christmas")) && cat === "seasonal") score += 30;
+      if ((title.includes("spring") || title.includes("bloom") || title.includes("flower")) && (cat === "garden" || cat === "nature")) score += 20;
+      if ((title.includes("water") || title.includes("splash") || title.includes("lake")) && cat === "nature") score += 20;
+
+      const nameWords = name.split(/\s+/).filter((w) => w.length > 3);
+      for (const word of nameWords) {
+        if (ref.includes(word)) score += 10;
+      }
+
+      score += (p.brandScore || 0) / 10;
+      return { place: p, score };
+    })
+    .filter((s) => s.score > 5)
+    .sort((a, b) => b.score - a.score);
+
+  return scored[0]?.place || null;
+}
+
 export function generateExcel(
   places: Partial<Place>[],
   city: string,
-  state: string
+  state: string,
+  templateVersion?: TemplateVersion
 ): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
 
@@ -234,7 +278,55 @@ export function generateExcel(
   ];
   XLSX.utils.book_append_sheet(wb, ws4, "Rejection Log");
 
-  // Sheet 5: Icon Key Reference
+  // Sheet 5: Weekly Plan (if template version provided)
+  if (templateVersion && WEEKLY_THEMES[templateVersion]) {
+    const themes = WEEKLY_THEMES[templateVersion];
+    const weeklyHeaders = [
+      "Week",
+      "Season",
+      "Theme",
+      "Reference Place (from template)",
+      "Matched Local Place",
+      "Icons",
+      "Brand Score",
+      "Status",
+    ];
+
+    const weeklyData = themes.map((theme) => {
+      const season = getSeason(theme.week);
+      // Simple matching: find best place for this week
+      const matched = findBestMatch(theme, places);
+      return [
+        theme.week,
+        season.charAt(0).toUpperCase() + season.slice(1),
+        theme.title,
+        theme.referencePlaceNote,
+        matched?.name || "",
+        matched?.iconString || "",
+        matched?.brandScore || "",
+        matched?.validationStatus || "",
+      ];
+    });
+
+    const ws5w = XLSX.utils.aoa_to_sheet([weeklyHeaders, ...weeklyData]);
+    ws5w["!cols"] = [
+      { wch: 6 },
+      { wch: 8 },
+      { wch: 25 },
+      { wch: 60 },
+      { wch: 30 },
+      { wch: 15 },
+      { wch: 10 },
+      { wch: 15 },
+    ];
+    XLSX.utils.book_append_sheet(
+      wb,
+      ws5w,
+      `Weekly Plan (${TEMPLATE_VERSION_LABELS[templateVersion].split(" — ")[0]})`
+    );
+  }
+
+  // Sheet 6: Icon Key Reference
   const iconData = [
     ["Icon Key Reference"],
     [],

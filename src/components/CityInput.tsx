@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { MapPin, Sparkles, Loader2 } from "lucide-react";
+import { TemplateVersion } from "@/lib/config/weekly-themes";
 
 const US_STATES = [
   "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA",
@@ -12,13 +13,14 @@ const US_STATES = [
 ];
 
 interface CityInputProps {
-  onGenerate: (city: string, state: string, mode: "demo" | "live") => void;
+  onGenerate: (city: string, state: string, mode: "demo" | "live", templateVersion: TemplateVersion) => void;
   isLoading: boolean;
 }
 
 export default function CityInput({ onGenerate, isLoading }: CityInputProps) {
   const [city, setCity] = useState("Wichita");
   const [state, setState] = useState("KS");
+  const [templateVersion, setTemplateVersion] = useState<TemplateVersion>("omaha");
 
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-stone-200 p-8 max-w-xl mx-auto">
@@ -37,49 +39,78 @@ export default function CityInput({ onGenerate, isLoading }: CityInputProps) {
       </div>
 
       <div className="space-y-4">
-        <div>
-          <label
-            htmlFor="city"
-            className="block text-sm font-medium text-stone-700 mb-1"
-          >
-            City
-          </label>
-          <input
-            id="city"
-            type="text"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            placeholder="e.g. Wichita"
-            className="w-full px-4 py-2.5 border border-stone-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-stone-900 placeholder:text-stone-400"
-            disabled={isLoading}
-          />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label
+              htmlFor="city"
+              className="block text-sm font-medium text-stone-700 mb-1"
+            >
+              City
+            </label>
+            <input
+              id="city"
+              type="text"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="e.g. Wichita"
+              className="w-full px-4 py-2.5 border border-stone-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-stone-900 placeholder:text-stone-400"
+              disabled={isLoading}
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="state"
+              className="block text-sm font-medium text-stone-700 mb-1"
+            >
+              State
+            </label>
+            <select
+              id="state"
+              value={state}
+              onChange={(e) => setState(e.target.value)}
+              className="w-full px-4 py-2.5 border border-stone-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-stone-900 bg-white"
+              disabled={isLoading}
+            >
+              {US_STATES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div>
-          <label
-            htmlFor="state"
-            className="block text-sm font-medium text-stone-700 mb-1"
-          >
-            State
+          <label className="block text-sm font-medium text-stone-700 mb-2">
+            Weekly Theme Template
           </label>
-          <select
-            id="state"
-            value={state}
-            onChange={(e) => setState(e.target.value)}
-            className="w-full px-4 py-2.5 border border-stone-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-stone-900 bg-white"
-            disabled={isLoading}
-          >
-            {US_STATES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
+          <div className="grid grid-cols-3 gap-2">
+            {(["omaha", "lincoln", "des_moines"] as TemplateVersion[]).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setTemplateVersion(v)}
+                disabled={isLoading}
+                className={`px-3 py-2.5 rounded-lg border-2 text-sm font-medium transition-all ${
+                  templateVersion === v
+                    ? "border-emerald-600 bg-emerald-50 text-emerald-800"
+                    : "border-stone-200 bg-white text-stone-600 hover:border-stone-300"
+                } disabled:opacity-50`}
+              >
+                <span className="block font-semibold">
+                  {v === "omaha" ? "Version A" : v === "lincoln" ? "Version B" : "Version C"}
+                </span>
+                <span className="block text-xs mt-0.5 opacity-75">
+                  {v === "omaha" ? "Omaha" : v === "lincoln" ? "Lincoln" : "Des Moines"}
+                </span>
+              </button>
             ))}
-          </select>
+          </div>
         </div>
 
         <div className="flex gap-3 pt-2">
           <button
-            onClick={() => onGenerate(city, state, "demo")}
+            onClick={() => onGenerate(city, state, "demo", templateVersion)}
             disabled={isLoading || !city.trim()}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
@@ -92,7 +123,7 @@ export default function CityInput({ onGenerate, isLoading }: CityInputProps) {
           </button>
 
           <button
-            onClick={() => onGenerate(city, state, "live")}
+            onClick={() => onGenerate(city, state, "live", templateVersion)}
             disabled={isLoading || !city.trim()}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border-2 border-emerald-700 text-emerald-700 rounded-lg hover:bg-emerald-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >

@@ -2,18 +2,21 @@
 
 import { useState } from "react";
 import { Place } from "@/lib/types";
+import { TemplateVersion } from "@/lib/config/weekly-themes";
 import { Download, Loader2 } from "lucide-react";
 
 interface ExportButtonProps {
   places: Partial<Place>[];
   city: string;
   state: string;
+  templateVersion: TemplateVersion;
 }
 
 export default function ExportButton({
   places,
   city,
   state,
+  templateVersion,
 }: ExportButtonProps) {
   const [exporting, setExporting] = useState(false);
 
@@ -23,7 +26,7 @@ export default function ExportButton({
       const res = await fetch("/api/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ places, city, state }),
+        body: JSON.stringify({ places, city, state, templateVersion }),
       });
 
       if (!res.ok) throw new Error("Export failed");

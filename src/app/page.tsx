@@ -3,11 +3,13 @@
 import { useState, useCallback } from "react";
 import { Place, TemplateSelection, StepProgress, PipelineStep } from "@/lib/types";
 import { CATEGORIES } from "@/lib/config/categories";
+import { TemplateVersion } from "@/lib/config/weekly-themes";
 import CityInput from "@/components/CityInput";
 import PipelineProgress from "@/components/PipelineProgress";
 import TemplateCard from "@/components/TemplateCard";
 import SummaryCards from "@/components/SummaryCards";
 import ResultsTable from "@/components/ResultsTable";
+import WeeklyPlan from "@/components/WeeklyPlan";
 import ExportButton from "@/components/ExportButton";
 import { Leaf, RotateCcw } from "lucide-react";
 
@@ -40,6 +42,7 @@ export default function Home() {
   const [places, setPlaces] = useState<Partial<Place>[]>([]);
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateVersion>("omaha");
   const [error, setError] = useState<string | null>(null);
   const [showResults, setShowResults] = useState(false);
 
@@ -57,7 +60,8 @@ export default function Home() {
   const handleGenerate = async (
     inputCity: string,
     inputState: string,
-    mode: "demo" | "live"
+    mode: "demo" | "live",
+    templateVersion: TemplateVersion
   ) => {
     setIsLoading(true);
     setError(null);
@@ -66,6 +70,7 @@ export default function Home() {
     setTemplate(null);
     setCity(inputCity);
     setState(inputState);
+    setSelectedTemplate(templateVersion);
     setSteps(INITIAL_STEPS.map((s) => ({ ...s, status: "pending", detail: undefined })));
 
     try {
@@ -231,7 +236,7 @@ export default function Home() {
 
           {showResults && (
             <div className="flex items-center gap-3">
-              <ExportButton places={places} city={city} state={state} />
+              <ExportButton places={places} city={city} state={state} templateVersion={selectedTemplate} />
               <button
                 onClick={handleReset}
                 className="flex items-center gap-2 px-4 py-2.5 border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50 transition-colors text-sm font-medium"
@@ -289,6 +294,14 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Weekly Plan */}
+            <WeeklyPlan
+              templateVersion={selectedTemplate}
+              places={places}
+              city={city}
+            />
+
+            {/* Results table */}
             <ResultsTable places={places} />
           </div>
         )}
