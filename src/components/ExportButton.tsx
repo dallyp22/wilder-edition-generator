@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Place } from "@/lib/types";
+import { Place, WeekMatch } from "@/lib/types";
 import { TemplateVersion } from "@/lib/config/weekly-themes";
 import { Download, Loader2 } from "lucide-react";
 
@@ -10,6 +10,7 @@ interface ExportButtonProps {
   city: string;
   state: string;
   templateVersion: TemplateVersion;
+  weekMatches?: WeekMatch[];
 }
 
 export default function ExportButton({
@@ -17,6 +18,7 @@ export default function ExportButton({
   city,
   state,
   templateVersion,
+  weekMatches,
 }: ExportButtonProps) {
   const [exporting, setExporting] = useState(false);
 
@@ -26,7 +28,7 @@ export default function ExportButton({
       const res = await fetch("/api/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ places, city, state, templateVersion }),
+        body: JSON.stringify({ places, city, state, templateVersion, weekMatches }),
       });
 
       if (!res.ok) throw new Error("Export failed");

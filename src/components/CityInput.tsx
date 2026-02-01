@@ -132,13 +132,13 @@ export default function CityInput({ onGenerate, isLoading }: CityInputProps) {
             ) : (
               <MapPin className="w-4 h-4" />
             )}
-            {isLoading ? "Generating..." : "Generate (Live APIs)"}
+            {isLoading ? "Generating..." : "Generate (AI + Live)"}
           </button>
         </div>
 
         <p className="text-xs text-stone-400 text-center">
-          Demo mode uses sample data. Live mode requires Brave + Google Places
-          API keys.
+          Demo mode uses sample data. AI + Live mode uses Claude AI for research + Google Places
+          for validation.
         </p>
       </div>
     </div>

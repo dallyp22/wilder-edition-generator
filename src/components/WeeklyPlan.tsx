@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Place } from "@/lib/types";
+import { Place, WeekMatch } from "@/lib/types";
 import {
   WeekTheme,
   TemplateVersion,
@@ -15,6 +15,7 @@ interface WeeklyPlanProps {
   templateVersion: TemplateVersion;
   places: Partial<Place>[];
   city: string;
+  weekMatches?: WeekMatch[];
 }
 
 const SEASON_CONFIG = {
@@ -85,6 +86,7 @@ export default function WeeklyPlan({
   templateVersion,
   places,
   city,
+  weekMatches,
 }: WeeklyPlanProps) {
   const [expandedSeason, setExpandedSeason] = useState<string | null>("winter");
   const themes = WEEKLY_THEMES[templateVersion];
@@ -159,7 +161,15 @@ export default function WeeklyPlan({
                 <div className="px-5 pb-4">
                   <div className="space-y-2">
                     {group.weeks.map((theme) => {
-                      const matched = matchPlaceToWeek(theme, places);
+                      // Use AI match if available, otherwise fall back to keyword matching
+                      const aiMatch = weekMatches?.find((m) => m.week === theme.week);
+                      const matched = aiMatch
+                        ? places.find((p) => p.name === aiMatch.placeName) || null
+                        : matchPlaceToWeek(theme, places);
+                      const alternatePlace = aiMatch
+                        ? places.find((p) => p.name === aiMatch.alternateName) || null
+                        : null;
+
                       return (
                         <div
                           key={theme.week}
@@ -175,12 +185,39 @@ export default function WeeklyPlan({
                               {theme.title}
                             </p>
                             {matched ? (
-                              <p className="text-xs text-emerald-700 mt-0.5">
-                                <span className="font-medium">{matched.name}</span>
-                                <span className="text-stone-400 ml-1">
-                                  {matched.iconString} — Score: {matched.brandScore}
-                                </span>
-                              </p>
+                              <div>
+                                <p className="text-xs text-emerald-700 mt-0.5">
+                                  <span className="font-medium">{matched.name}</span>
+                                  <span className="text-stone-400 ml-1">
+                                    {matched.iconString} — Score: {matched.brandScore}
+                                  </span>
+                                </p>
+                                {aiMatch && (
+                                  <p className="text-xs text-stone-500 mt-0.5">
+                                    {aiMatch.reason}
+                                  </p>
+                                )}
+                                {alternatePlace && (
+                                  <p className="text-xs text-stone-400 mt-0.5">
+                                    Alt: <span className="font-medium">{alternatePlace.name}</span>
+                                    {aiMatch?.alternateReason ? ` — ${aiMatch.alternateReason}` : ""}
+                                  </p>
+                                )}
+                              </div>
+                            ) : aiMatch ? (
+                              <div>
+                                <p className="text-xs text-emerald-700 mt-0.5">
+                                  <span className="font-medium">{aiMatch.placeName}</span>
+                                </p>
+                                <p className="text-xs text-stone-500 mt-0.5">
+                                  {aiMatch.reason}
+                                </p>
+                                {aiMatch.alternateName && (
+                                  <p className="text-xs text-stone-400 mt-0.5">
+                                    Alt: {aiMatch.alternateName}
+                                  </p>
+                                )}
+                              </div>
                             ) : (
                               <p className="text-xs text-stone-500 mt-0.5 italic">
                                 {theme.referencePlaceNote.length > 80

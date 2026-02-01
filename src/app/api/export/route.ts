@@ -5,7 +5,7 @@ import { Place } from "@/lib/types";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { places, city, state, templateVersion } = body;
+    const { places, city, state, templateVersion, weekMatches } = body;
 
     if (!places || !city || !state) {
       return NextResponse.json(
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const wb = generateExcel(places as Partial<Place>[], city, state, templateVersion);
+    const wb = generateExcel(places as Partial<Place>[], city, state, templateVersion, weekMatches);
     const buffer = workbookToBuffer(wb);
 
     const now = new Date();

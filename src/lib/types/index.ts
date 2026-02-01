@@ -88,7 +88,16 @@ export type PipelineStep =
   | "enrich"
   | "validate"
   | "icons"
+  | "match"
   | "complete";
+
+export interface WeekMatch {
+  week: number;
+  placeName: string;
+  reason: string;
+  alternateName: string;
+  alternateReason: string;
+}
 
 export interface StepProgress {
   step: PipelineStep;

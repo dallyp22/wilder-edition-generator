@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import { Place, PlaceCategory } from "@/lib/types";
+import { Place, PlaceCategory, WeekMatch } from "@/lib/types";
 import { CATEGORY_LABELS } from "@/lib/config/categories";
 import { TemplateVersion, WEEKLY_THEMES, TEMPLATE_VERSION_LABELS, getSeason } from "@/lib/config/weekly-themes";
 
@@ -64,7 +64,8 @@ export function generateExcel(
   places: Partial<Place>[],
   city: string,
   state: string,
-  templateVersion?: TemplateVersion
+  templateVersion?: TemplateVersion,
+  weekMatches?: WeekMatch[]
 ): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
 
@@ -287,6 +288,8 @@ export function generateExcel(
       "Theme",
       "Reference Place (from template)",
       "Matched Local Place",
+      "Match Reason",
+      "Alternate Place",
       "Icons",
       "Brand Score",
       "Status",
@@ -294,14 +297,21 @@ export function generateExcel(
 
     const weeklyData = themes.map((theme) => {
       const season = getSeason(theme.week);
-      // Simple matching: find best place for this week
-      const matched = findBestMatch(theme, places);
+      const aiMatch = weekMatches?.find((m) => m.week === theme.week);
+      const matched = aiMatch
+        ? places.find((p) => p.name === aiMatch.placeName) || null
+        : findBestMatch(theme, places);
+      const alternate = aiMatch
+        ? places.find((p) => p.name === aiMatch.alternateName) || null
+        : null;
       return [
         theme.week,
         season.charAt(0).toUpperCase() + season.slice(1),
         theme.title,
         theme.referencePlaceNote,
-        matched?.name || "",
+        matched?.name || aiMatch?.placeName || "",
+        aiMatch?.reason || "",
+        alternate?.name || aiMatch?.alternateName || "",
         matched?.iconString || "",
         matched?.brandScore || "",
         matched?.validationStatus || "",
@@ -314,6 +324,8 @@ export function generateExcel(
       { wch: 8 },
       { wch: 25 },
       { wch: 60 },
+      { wch: 30 },
+      { wch: 40 },
       { wch: 30 },
       { wch: 15 },
       { wch: 10 },

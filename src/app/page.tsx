@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Place, TemplateSelection, StepProgress, PipelineStep } from "@/lib/types";
+import { Place, TemplateSelection, StepProgress, PipelineStep, WeekMatch } from "@/lib/types";
 import { CATEGORIES } from "@/lib/config/categories";
 import { TemplateVersion } from "@/lib/config/weekly-themes";
 import CityInput from "@/components/CityInput";
@@ -15,10 +15,11 @@ import { Leaf, RotateCcw } from "lucide-react";
 
 const INITIAL_STEPS: StepProgress[] = [
   { step: "template", label: "Template Selection", status: "pending" },
-  { step: "research", label: "Place Discovery (7 categories)", status: "pending" },
+  { step: "research", label: "AI Place Discovery (7 categories)", status: "pending" },
   { step: "enrich", label: "Google Places Enrichment", status: "pending" },
   { step: "validate", label: "Brand Validation", status: "pending" },
   { step: "icons", label: "Icon Assignment", status: "pending" },
+  { step: "match", label: "AI Week Matching", status: "pending" },
   { step: "complete", label: "Compilation", status: "pending" },
 ];
 
@@ -44,6 +45,7 @@ export default function Home() {
   const [state, setState] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateVersion>("omaha");
   const [error, setError] = useState<string | null>(null);
+  const [weekMatches, setWeekMatches] = useState<WeekMatch[]>([]);
   const [showResults, setShowResults] = useState(false);
 
   const updateStep = useCallback(
@@ -68,6 +70,7 @@ export default function Home() {
     setShowResults(false);
     setPlaces([]);
     setTemplate(null);
+    setWeekMatches([]);
     setCity(inputCity);
     setState(inputState);
     setSelectedTemplate(templateVersion);
@@ -125,30 +128,38 @@ export default function Home() {
     setTemplate(templateData.templateSelection);
     updateStep("template", "completed", templateData.templateSelection.primaryTemplate);
 
-    // Step 2: Research each category individually
-    updateStep("research", "running", "Starting place discovery...");
-    let allPlaces: Partial<Place>[] = [];
+    // Step 2: AI Research — fire all 7 categories in parallel
+    updateStep("research", "running", "AI is discovering places (7 categories in parallel)...");
+    let completedCategories = 0;
 
-    for (let i = 0; i < CATEGORIES.length; i++) {
-      const cat = CATEGORIES[i];
-      updateStep(
-        "research",
-        "running",
-        `Searching ${cat.name} (${i + 1}/${CATEGORIES.length})...`
-      );
-
+    const categoryPromises = CATEGORIES.map(async (cat) => {
       try {
-        const resData = await apiCall("/api/generate/research", {
+        const resData = await apiCall("/api/generate/ai-research", {
           city: inputCity,
           state: inputState,
           category: cat.id,
         });
-        allPlaces = [...allPlaces, ...(resData.places || [])];
+        completedCategories++;
+        updateStep(
+          "research",
+          "running",
+          `${completedCategories}/${CATEGORIES.length} categories complete...`
+        );
+        return resData.places || [];
       } catch (err) {
-        console.error(`Research failed for ${cat.id}:`, err);
-        // Continue with other categories
+        console.error(`AI research failed for ${cat.id}:`, err);
+        completedCategories++;
+        updateStep(
+          "research",
+          "running",
+          `${completedCategories}/${CATEGORIES.length} categories (some errors)...`
+        );
+        return [];
       }
-    }
+    });
+
+    const results = await Promise.all(categoryPromises);
+    let allPlaces: Partial<Place>[] = results.flat();
 
     // Deduplicate
     const seen = new Set<string>();
@@ -159,10 +170,10 @@ export default function Home() {
       return true;
     });
 
-    updateStep("research", "completed", `${allPlaces.length} places discovered`);
+    updateStep("research", "completed", `${allPlaces.length} places discovered by AI`);
 
-    // Step 3: Enrich in batches of 3 (fits within 10s timeout)
-    updateStep("enrich", "running", "Enriching with Google Places...");
+    // Step 3: Enrich in batches of 3 (validates AI suggestions via Google Places)
+    updateStep("enrich", "running", "Validating with Google Places...");
     const BATCH_SIZE = 3;
     const enrichedPlaces: Partial<Place>[] = [];
 
@@ -173,7 +184,7 @@ export default function Home() {
       updateStep(
         "enrich",
         "running",
-        `Enriching batch ${batchNum}/${totalBatches} (${Math.min(i + BATCH_SIZE, allPlaces.length)}/${allPlaces.length} places)...`
+        `Validating batch ${batchNum}/${totalBatches} (${Math.min(i + BATCH_SIZE, allPlaces.length)}/${allPlaces.length} places)...`
       );
 
       try {
@@ -183,12 +194,11 @@ export default function Home() {
         enrichedPlaces.push(...(enrichData.places || batch));
       } catch (err) {
         console.error(`Enrichment failed for batch ${batchNum}:`, err);
-        // Use unenriched data as fallback
         enrichedPlaces.push(...batch);
       }
     }
 
-    updateStep("enrich", "completed", `${enrichedPlaces.length} places enriched`);
+    updateStep("enrich", "completed", `${enrichedPlaces.length} places validated`);
 
     // Step 4 & 5: Validate + Icons (single call, pure logic, instant)
     updateStep("validate", "running", "Scoring brand alignment...");
@@ -196,15 +206,31 @@ export default function Home() {
       places: enrichedPlaces,
     });
     updateStep("validate", "completed", "Brand validation complete");
-
     updateStep("icons", "completed", "Icons applied");
+
+    setPlaces(finalData.places);
+
+    // Step 6: AI Week Matching
+    updateStep("match", "running", "AI is matching places to 52 weekly themes...");
+    try {
+      const matchData = await apiCall("/api/generate/ai-match-weeks", {
+        places: finalData.places,
+        templateVersion: selectedTemplate,
+        city: inputCity,
+      });
+      setWeekMatches(matchData.weekMatches || []);
+      updateStep("match", "completed", `${(matchData.weekMatches || []).length} weeks matched`);
+    } catch (err) {
+      console.error("AI week matching failed:", err);
+      updateStep("match", "completed", "Week matching skipped (using fallback)");
+    }
+
     updateStep(
       "complete",
       "completed",
       `${finalData.places.length} places — ${finalData.summary.recommended} recommended`
     );
 
-    setPlaces(finalData.places);
     setShowResults(true);
   };
 
@@ -213,6 +239,7 @@ export default function Home() {
     setShowResults(false);
     setPlaces([]);
     setTemplate(null);
+    setWeekMatches([]);
     setError(null);
     setSteps(INITIAL_STEPS);
   };
@@ -236,7 +263,7 @@ export default function Home() {
 
           {showResults && (
             <div className="flex items-center gap-3">
-              <ExportButton places={places} city={city} state={state} templateVersion={selectedTemplate} />
+              <ExportButton places={places} city={city} state={state} templateVersion={selectedTemplate} weekMatches={weekMatches} />
               <button
                 onClick={handleReset}
                 className="flex items-center gap-2 px-4 py-2.5 border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50 transition-colors text-sm font-medium"
@@ -299,6 +326,7 @@ export default function Home() {
               templateVersion={selectedTemplate}
               places={places}
               city={city}
+              weekMatches={weekMatches}
             />
 
             {/* Results table */}
