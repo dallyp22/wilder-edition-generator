@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Place, TemplateSelection, StepProgress, PipelineStep } from "@/lib/types";
+import { CATEGORIES } from "@/lib/config/categories";
 import CityInput from "@/components/CityInput";
 import PipelineProgress from "@/components/PipelineProgress";
 import TemplateCard from "@/components/TemplateCard";
@@ -12,12 +13,25 @@ import { Leaf, RotateCcw } from "lucide-react";
 
 const INITIAL_STEPS: StepProgress[] = [
   { step: "template", label: "Template Selection", status: "pending" },
-  { step: "research", label: "Place Discovery", status: "pending" },
-  { step: "enrich", label: "Data Enrichment", status: "pending" },
+  { step: "research", label: "Place Discovery (7 categories)", status: "pending" },
+  { step: "enrich", label: "Google Places Enrichment", status: "pending" },
   { step: "validate", label: "Brand Validation", status: "pending" },
   { step: "icons", label: "Icon Assignment", status: "pending" },
   { step: "complete", label: "Compilation", status: "pending" },
 ];
+
+async function apiCall(url: string, body: Record<string, unknown>) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Request failed" }));
+    throw new Error(err.error || `API call failed: ${res.status}`);
+  }
+  return res.json();
+}
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
@@ -29,17 +43,16 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [showResults, setShowResults] = useState(false);
 
-  const updateStep = (
-    step: PipelineStep,
-    status: StepProgress["status"],
-    detail?: string
-  ) => {
-    setSteps((prev) =>
-      prev.map((s) =>
-        s.step === step ? { ...s, status, detail: detail || s.detail } : s
-      )
-    );
-  };
+  const updateStep = useCallback(
+    (step: PipelineStep, status: StepProgress["status"], detail?: string) => {
+      setSteps((prev) =>
+        prev.map((s) =>
+          s.step === step ? { ...s, status, detail: detail || s.detail } : s
+        )
+      );
+    },
+    []
+  );
 
   const handleGenerate = async (
     inputCity: string,
@@ -56,63 +69,14 @@ export default function Home() {
     setSteps(INITIAL_STEPS.map((s) => ({ ...s, status: "pending", detail: undefined })));
 
     try {
-      // Animate pipeline steps
-      updateStep("template", "running", "Analyzing city characteristics...");
-      await delay(400);
-
-      updateStep("template", "completed", "Template selected");
-      updateStep("research", "running", `Discovering places in ${inputCity}...`);
-      await delay(600);
-
-      updateStep("research", "completed", "Places discovered");
-      updateStep(
-        "enrich",
-        "running",
-        mode === "demo"
-          ? "Using sample data..."
-          : "Enriching with Google Places..."
-      );
-      await delay(400);
-
-      updateStep("enrich", "completed", "Data enriched");
-      updateStep("validate", "running", "Scoring brand alignment...");
-
-      // Make the API call
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ city: inputCity, state: inputState, mode }),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Generation failed");
+      if (mode === "demo") {
+        await runDemoMode(inputCity, inputState);
+      } else {
+        await runLiveMode(inputCity, inputState);
       }
-
-      const data = await res.json();
-
-      updateStep("validate", "completed", "Brand validation complete");
-      updateStep("icons", "running", "Assigning icons...");
-      await delay(300);
-
-      updateStep("icons", "completed", "Icons applied");
-      updateStep("complete", "running", "Compiling results...");
-      await delay(300);
-
-      updateStep(
-        "complete",
-        "completed",
-        `${data.places.length} places compiled`
-      );
-
-      setTemplate(data.templateSelection);
-      setPlaces(data.places);
-      setShowResults(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : "An error occurred";
       setError(message);
-
-      // Mark current running step as error
       setSteps((prev) =>
         prev.map((s) =>
           s.status === "running" ? { ...s, status: "error", detail: message } : s
@@ -121,6 +85,122 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const runDemoMode = async (inputCity: string, inputState: string) => {
+    // Demo uses the single endpoint (fast, no external APIs)
+    updateStep("template", "running", "Analyzing city characteristics...");
+    await delay(300);
+
+    const data = await apiCall("/api/generate", {
+      city: inputCity,
+      state: inputState,
+      mode: "demo",
+    });
+
+    updateStep("template", "completed");
+    updateStep("research", "completed", "Sample data loaded");
+    updateStep("enrich", "completed", "Sample data pre-enriched");
+    updateStep("validate", "completed", "Brand validation complete");
+    updateStep("icons", "completed", "Icons applied");
+    updateStep("complete", "completed", `${data.places.length} places compiled`);
+
+    setTemplate(data.templateSelection);
+    setPlaces(data.places);
+    setShowResults(true);
+  };
+
+  const runLiveMode = async (inputCity: string, inputState: string) => {
+    // Step 1: Template selection (instant)
+    updateStep("template", "running", "Analyzing city characteristics...");
+    const templateData = await apiCall("/api/generate/template", {
+      city: inputCity,
+      state: inputState,
+    });
+    setTemplate(templateData.templateSelection);
+    updateStep("template", "completed", templateData.templateSelection.primaryTemplate);
+
+    // Step 2: Research each category individually
+    updateStep("research", "running", "Starting place discovery...");
+    let allPlaces: Partial<Place>[] = [];
+
+    for (let i = 0; i < CATEGORIES.length; i++) {
+      const cat = CATEGORIES[i];
+      updateStep(
+        "research",
+        "running",
+        `Searching ${cat.name} (${i + 1}/${CATEGORIES.length})...`
+      );
+
+      try {
+        const resData = await apiCall("/api/generate/research", {
+          city: inputCity,
+          state: inputState,
+          category: cat.id,
+        });
+        allPlaces = [...allPlaces, ...(resData.places || [])];
+      } catch (err) {
+        console.error(`Research failed for ${cat.id}:`, err);
+        // Continue with other categories
+      }
+    }
+
+    // Deduplicate
+    const seen = new Set<string>();
+    allPlaces = allPlaces.filter((p) => {
+      const key = (p.name || "").toLowerCase().replace(/[^a-z]/g, "");
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    updateStep("research", "completed", `${allPlaces.length} places discovered`);
+
+    // Step 3: Enrich in batches of 3 (fits within 10s timeout)
+    updateStep("enrich", "running", "Enriching with Google Places...");
+    const BATCH_SIZE = 3;
+    const enrichedPlaces: Partial<Place>[] = [];
+
+    for (let i = 0; i < allPlaces.length; i += BATCH_SIZE) {
+      const batch = allPlaces.slice(i, i + BATCH_SIZE);
+      const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+      const totalBatches = Math.ceil(allPlaces.length / BATCH_SIZE);
+      updateStep(
+        "enrich",
+        "running",
+        `Enriching batch ${batchNum}/${totalBatches} (${Math.min(i + BATCH_SIZE, allPlaces.length)}/${allPlaces.length} places)...`
+      );
+
+      try {
+        const enrichData = await apiCall("/api/generate/enrich", {
+          places: batch,
+        });
+        enrichedPlaces.push(...(enrichData.places || batch));
+      } catch (err) {
+        console.error(`Enrichment failed for batch ${batchNum}:`, err);
+        // Use unenriched data as fallback
+        enrichedPlaces.push(...batch);
+      }
+    }
+
+    updateStep("enrich", "completed", `${enrichedPlaces.length} places enriched`);
+
+    // Step 4 & 5: Validate + Icons (single call, pure logic, instant)
+    updateStep("validate", "running", "Scoring brand alignment...");
+    const finalData = await apiCall("/api/generate/finalize", {
+      places: enrichedPlaces,
+    });
+    updateStep("validate", "completed", "Brand validation complete");
+
+    updateStep("icons", "completed", "Icons applied");
+    updateStep(
+      "complete",
+      "completed",
+      `${finalData.places.length} places — ${finalData.summary.recommended} recommended`
+    );
+
+    setPlaces(finalData.places);
+    setShowResults(true);
   };
 
   const handleReset = () => {
@@ -165,10 +245,8 @@ export default function Home() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Input or results */}
         {!showResults ? (
           <div className="space-y-6">
-            {/* Hero */}
             <div className="text-center py-8">
               <h2 className="text-3xl font-bold text-stone-900 mb-3">
                 Edition Generator
@@ -193,7 +271,6 @@ export default function Home() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* City header */}
             <div>
               <h2 className="text-2xl font-bold text-stone-900">
                 {city}, {state}
@@ -203,7 +280,6 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Template + Summary */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-1">
                 {template && <TemplateCard template={template} />}
@@ -213,13 +289,11 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Results table */}
             <ResultsTable places={places} />
           </div>
         )}
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-stone-200 mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <p className="text-xs text-stone-400 text-center">

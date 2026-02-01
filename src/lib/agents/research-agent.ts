@@ -10,48 +10,35 @@ function generateSearchQueries(
   const config = CATEGORIES.find((c) => c.id === category)!;
   const location = `${city} ${state}`;
 
+  // Limited to 2 queries per category to keep each API call under Vercel's 10s timeout
   const baseQueries: Record<PlaceCategory, string[]> = {
     nature: [
-      `${location} best parks toddlers families`,
-      `${location} nature trails stroller accessible`,
-      `${location} family friendly outdoor activities`,
-      `${location} nature center kids`,
-      `${location} best playgrounds children`,
+      `${location} best parks nature trails families toddlers`,
+      `${location} playgrounds nature center stroller accessible`,
     ],
     farm: [
-      `${location} family farms kids activities`,
-      `${location} petting zoo children`,
-      `${location} u-pick orchard family`,
-      `${location} pumpkin patch kids`,
+      `${location} family farms petting zoo kids`,
+      `${location} u-pick orchard pumpkin patch children`,
     ],
     library: [
-      `${location} public library children programs`,
-      `${location} library storytime toddlers`,
-      `${location} best libraries kids`,
+      `${location} public library children storytime programs`,
+      `${location} best libraries kids toddlers`,
     ],
     museum: [
-      `${location} children's museum`,
-      `${location} science museum kids`,
-      `${location} family friendly museums`,
-      `${location} educational activities children`,
+      `${location} children's museum science center kids`,
+      `${location} family friendly museums educational activities`,
     ],
     indoor_play: [
-      `${location} indoor play space toddlers`,
-      `${location} kids art studio classes`,
-      `${location} indoor activities children rainy day`,
-      `${location} play cafe kids`,
+      `${location} indoor play space toddlers kids`,
+      `${location} art studio play cafe children`,
     ],
     garden: [
-      `${location} botanical garden family`,
-      `${location} farmers market kids`,
-      `${location} family friendly restaurants local`,
-      `${location} ice cream shop local`,
+      `${location} botanical garden farmers market family`,
+      `${location} local ice cream bakery family friendly`,
     ],
     seasonal: [
-      `${location} family festivals events`,
-      `${location} holiday events children`,
-      `${location} seasonal activities kids`,
-      `${location} community events families`,
+      `${location} family festivals holiday events children`,
+      `${location} seasonal community events kids activities`,
     ],
   };
 
