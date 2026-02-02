@@ -111,7 +111,7 @@ export async function researchViaGemini(
   const prompt = buildThemedResearchPrompt(city, state, themes);
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 50000);
+  const timeout = setTimeout(() => controller.abort(), 55000);
 
   try {
     const res = await fetch(

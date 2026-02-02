@@ -1,4 +1,6 @@
 // Serverless runtime (NOT edge) — allows 60s timeout for comprehensive research
+export const maxDuration = 60;
+
 import { NextRequest, NextResponse } from "next/server";
 import { runThemedResearch, ResearchSource } from "@/lib/agents/themed-research";
 import { TemplateVersion } from "@/lib/config/weekly-themes";
