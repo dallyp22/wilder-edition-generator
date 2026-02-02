@@ -1,4 +1,4 @@
-// xAI Grok API client — raw fetch, matching callClaude/callOpenAI pattern
+// xAI Grok API client — Responses API for agentic search (web_search + x_search)
 
 export interface GrokWebSearchConfig {
   allowedDomains?: string[];
@@ -55,24 +55,32 @@ function buildToolsArray(config: GrokToolConfig): Record<string, unknown>[] {
   return tools;
 }
 
+interface ResponsesOutputItem {
+  type: string;
+  role?: string;
+  content?: string | { type: string; text: string }[];
+  text?: string;
+}
+
 export async function callGrok(
   systemPrompt: string,
   userPrompt: string,
   xaiApiKey: string,
   tools: GrokToolConfig,
   options?: {
-    model?: "grok-3-fast" | "grok-3";
+    model?: string;
     timeoutMs?: number;
   }
 ): Promise<string> {
-  const model = options?.model || "grok-3-fast";
-  const timeoutMs = options?.timeoutMs || 20000;
+  const model = options?.model || "grok-4-1-fast";
+  const timeoutMs = options?.timeoutMs || 45000;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch("https://api.x.ai/v1/chat/completions", {
+    // Responses API supports web_search + x_search with full filter params
+    const res = await fetch("https://api.x.ai/v1/responses", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -80,7 +88,7 @@ export async function callGrok(
       },
       body: JSON.stringify({
         model,
-        messages: [
+        input: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
@@ -96,7 +104,28 @@ export async function callGrok(
     }
 
     const data = await res.json();
-    return data.choices?.[0]?.message?.content || "";
+
+    // Responses API convenience field
+    if (data.output_text) return data.output_text;
+
+    // Fallback: parse output array for assistant message
+    if (Array.isArray(data.output)) {
+      for (let i = data.output.length - 1; i >= 0; i--) {
+        const item: ResponsesOutputItem = data.output[i];
+        if (item.type === "message" && item.role === "assistant") {
+          if (typeof item.content === "string") return item.content;
+          if (Array.isArray(item.content)) {
+            const text = item.content
+              .filter((p) => p.type === "output_text" || p.type === "text")
+              .map((p) => p.text)
+              .join("");
+            if (text) return text;
+          }
+        }
+      }
+    }
+
+    throw new Error("Could not parse Grok Responses API output");
   } finally {
     clearTimeout(timeout);
   }
