@@ -1,8 +1,8 @@
-// xAI Grok API client — Chat Completions with live_search for fast single-pass search
+// xAI Grok API client — Responses API for agentic search (web_search + x_search)
 //
-// Note: The Responses API (/v1/responses) supports richer web_search + x_search with
-// domain/location filters, but uses agentic multi-round search that exceeds Vercel's
-// 60s serverless limit. Chat Completions with live_search is a single fast search pass.
+// Uses the Responses API (/v1/responses) which supports full agentic multi-round
+// search with domain filters, location hints, and X handle/date filters.
+// Requires Vercel Pro (300s serverless limit) for adequate time.
 
 export interface GrokWebSearchConfig {
   allowedDomains?: string[];
@@ -26,6 +26,46 @@ export interface GrokToolConfig {
   xSearch?: GrokXSearchConfig;
 }
 
+function buildToolsArray(config: GrokToolConfig): Record<string, unknown>[] {
+  const tools: Record<string, unknown>[] = [];
+
+  if (config.webSearch) {
+    const ws = config.webSearch;
+    tools.push({
+      type: "web_search",
+      ...(ws.allowedDomains && { allowed_domains: ws.allowedDomains }),
+      ...(ws.excludedDomains && { excluded_domains: ws.excludedDomains }),
+      ...(ws.userLocation && {
+        user_location_country: ws.userLocation.country,
+        user_location_city: ws.userLocation.city,
+        user_location_region: ws.userLocation.region,
+        ...(ws.userLocation.timezone && {
+          user_location_timezone: ws.userLocation.timezone,
+        }),
+      }),
+    });
+  }
+
+  if (config.xSearch) {
+    const xs = config.xSearch;
+    tools.push({
+      type: "x_search",
+      ...(xs.excludedHandles && { excluded_x_handles: xs.excludedHandles }),
+      ...(xs.fromDate && { from_date: xs.fromDate }),
+      ...(xs.toDate && { to_date: xs.toDate }),
+    });
+  }
+
+  return tools;
+}
+
+interface ResponsesOutputItem {
+  type: string;
+  role?: string;
+  content?: string | { type: string; text: string }[];
+  text?: string;
+}
+
 export async function callGrok(
   systemPrompt: string,
   userPrompt: string,
@@ -36,19 +76,15 @@ export async function callGrok(
     timeoutMs?: number;
   }
 ): Promise<string> {
-  const model = options?.model || "grok-3-fast";
-  const timeoutMs = options?.timeoutMs || 45000;
+  const model = options?.model || "grok-4-1-fast";
+  const timeoutMs = options?.timeoutMs || 120000;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    // Chat Completions with live_search: single-pass search, fast enough for 60s limit.
-    // Location/domain context is embedded in the research prompt itself.
-    const toolsArray: Record<string, unknown>[] =
-      (tools.webSearch || tools.xSearch) ? [{ type: "live_search" }] : [];
-
-    const res = await fetch("https://api.x.ai/v1/chat/completions", {
+    // Responses API: full agentic search with web_search + x_search
+    const res = await fetch("https://api.x.ai/v1/responses", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -56,11 +92,11 @@ export async function callGrok(
       },
       body: JSON.stringify({
         model,
-        messages: [
+        input: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        ...(toolsArray.length > 0 && { tools: toolsArray }),
+        tools: buildToolsArray(tools),
         temperature: 0.7,
       }),
       signal: controller.signal,
@@ -72,7 +108,28 @@ export async function callGrok(
     }
 
     const data = await res.json();
-    return data.choices?.[0]?.message?.content || "";
+
+    // Responses API convenience field
+    if (data.output_text) return data.output_text;
+
+    // Fallback: parse output array for assistant message
+    if (Array.isArray(data.output)) {
+      for (let i = data.output.length - 1; i >= 0; i--) {
+        const item: ResponsesOutputItem = data.output[i];
+        if (item.type === "message" && item.role === "assistant") {
+          if (typeof item.content === "string") return item.content;
+          if (Array.isArray(item.content)) {
+            const text = item.content
+              .filter((p) => p.type === "output_text" || p.type === "text")
+              .map((p) => p.text)
+              .join("");
+            if (text) return text;
+          }
+        }
+      }
+    }
+
+    throw new Error("Could not parse Grok Responses API output");
   } finally {
     clearTimeout(timeout);
   }

@@ -1,4 +1,6 @@
-// Serverless runtime (NOT edge) — allows 60s timeout for Opus curation
+// Serverless runtime (NOT edge) — Opus curation needs time for thorough review
+export const maxDuration = 300;
+
 import { NextRequest, NextResponse } from "next/server";
 import { callOpus, parseJSONFromResponse, generatePlaceId } from "@/lib/utils/ai-client";
 import { Place, PlaceCategory } from "@/lib/types";

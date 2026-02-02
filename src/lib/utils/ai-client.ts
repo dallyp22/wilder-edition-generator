@@ -80,7 +80,7 @@ export async function callOpus(
   apiKey: string
 ): Promise<string> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 50000);
+  const timeout = setTimeout(() => controller.abort(), 120000);
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {

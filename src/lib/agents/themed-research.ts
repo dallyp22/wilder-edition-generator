@@ -95,7 +95,7 @@ export async function researchViaGrok(
       fromDate,
       excludedHandles: ["scarymommy", "motherly", "todaysparent", "parents"],
     },
-  }, { timeoutMs: 45000 });
+  }, { timeoutMs: 120000 });
 
   return parseThemedResults(raw, "grok");
 }
@@ -111,7 +111,7 @@ export async function researchViaGemini(
   const prompt = buildThemedResearchPrompt(city, state, themes);
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 55000);
+  const timeout = setTimeout(() => controller.abort(), 120000);
 
   try {
     const res = await fetch(
