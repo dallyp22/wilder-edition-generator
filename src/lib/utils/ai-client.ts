@@ -80,7 +80,7 @@ export async function callOpus(
   apiKey: string
 ): Promise<string> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120000);
+  const timeout = setTimeout(() => controller.abort(), 240000);
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -92,7 +92,7 @@ export async function callOpus(
       },
       body: JSON.stringify({
         model: "claude-opus-4-20250514",
-        max_tokens: 16384,
+        max_tokens: 32768,
         system: systemPrompt,
         messages: [{ role: "user", content: userPrompt }],
       }),
