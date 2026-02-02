@@ -166,30 +166,46 @@ export default function Home() {
 
     updateStep("discover", "completed", `${rawPlaces.length} places found from web search`);
 
-    // Step 3: AI Curation — Claude reviews all discovered places
+    // Step 3: AI Curation — Claude reviews discovered places (batched to avoid timeouts)
     updateStep("curate", "running", `Claude is reviewing ${rawPlaces.length} places...`);
-    let curatedPlaces: Partial<Place>[];
-    try {
-      const curationData = await apiCall("/api/generate/curate", {
-        city: inputCity,
-        state: inputState,
-        rawPlaces,
-      });
-      curatedPlaces = curationData.places || [];
-      updateStep("curate", "completed", `${curatedPlaces.length} places accepted by Claude`);
-    } catch (err) {
-      console.error("Curation failed:", err);
-      updateStep("curate", "completed", "Curation skipped — using raw results");
-      curatedPlaces = rawPlaces.map((p: { name: string; category: string; snippet: string; sourceUrl: string }) => ({
-        name: p.name,
-        category: p.category as Place["category"],
-        shortDescription: (p.snippet || "").slice(0, 100),
-        city: inputCity,
-        state: inputState,
-        sourceUrl: p.sourceUrl || "",
-        validationStatus: "REVIEW" as const,
-      }));
+    const CURATION_BATCH_SIZE = 25;
+    const curatedPlaces: Partial<Place>[] = [];
+
+    for (let i = 0; i < rawPlaces.length; i += CURATION_BATCH_SIZE) {
+      const batch = rawPlaces.slice(i, i + CURATION_BATCH_SIZE);
+      const batchNum = Math.floor(i / CURATION_BATCH_SIZE) + 1;
+      const totalBatches = Math.ceil(rawPlaces.length / CURATION_BATCH_SIZE);
+      updateStep(
+        "curate",
+        "running",
+        `Claude reviewing batch ${batchNum}/${totalBatches} (${Math.min(i + CURATION_BATCH_SIZE, rawPlaces.length)}/${rawPlaces.length} places)...`
+      );
+
+      try {
+        const curationData = await apiCall("/api/generate/curate", {
+          city: inputCity,
+          state: inputState,
+          rawPlaces: batch,
+        });
+        curatedPlaces.push(...(curationData.places || []));
+      } catch (err) {
+        console.error(`Curation batch ${batchNum} failed:`, err);
+        // Fallback: pass this batch through as raw
+        curatedPlaces.push(
+          ...batch.map((p: { name: string; category: string; snippet: string; sourceUrl: string }) => ({
+            name: p.name,
+            category: p.category as Place["category"],
+            shortDescription: (p.snippet || "").slice(0, 100),
+            city: inputCity,
+            state: inputState,
+            sourceUrl: p.sourceUrl || "",
+            validationStatus: "REVIEW" as const,
+          }))
+        );
+      }
     }
+
+    updateStep("curate", "completed", `${curatedPlaces.length} places accepted by Claude`);
 
     // Step 4: Google Places Validation (batched enrichment)
     updateStep("enrich", "running", "Validating with Google Places...");
