@@ -92,7 +92,7 @@ export async function callOpus(
       },
       body: JSON.stringify({
         model: "claude-opus-4-20250514",
-        max_tokens: 32768,
+        max_tokens: 32000,
         system: systemPrompt,
         messages: [{ role: "user", content: userPrompt }],
       }),
