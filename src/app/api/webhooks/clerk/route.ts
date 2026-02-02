@@ -1,41 +1,54 @@
 import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db/client";
+import { users } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
-/**
- * Clerk webhook handler — syncs user events to the database.
- * Activate full logic when DATABASE_URL is connected in Phase 2.
- *
- * Clerk Dashboard → Webhooks → Add endpoint:
- *   URL: https://your-domain.com/api/webhooks/clerk
- *   Events: user.created, user.updated, user.deleted
- */
 export async function POST(req: NextRequest) {
   try {
     const payload = await req.json();
     const eventType = payload.type as string;
-
-    // Log for debugging during development
-    console.log(`[Clerk Webhook] Received event: ${eventType}`);
+    const userData = payload.data;
 
     switch (eventType) {
       case "user.created":
-        // TODO: Insert user into database
-        console.log("[Clerk Webhook] User created:", payload.data.id);
+        await db.insert(users).values({
+          clerkId: userData.id,
+          email: userData.email_addresses?.[0]?.email_address || "",
+          firstName: userData.first_name || null,
+          lastName: userData.last_name || null,
+          role: "member",
+        }).onConflictDoNothing();
+        console.log("[Clerk Webhook] User created:", userData.id);
         break;
+
       case "user.updated":
-        // TODO: Update user in database
-        console.log("[Clerk Webhook] User updated:", payload.data.id);
+        await db
+          .update(users)
+          .set({
+            email: userData.email_addresses?.[0]?.email_address || "",
+            firstName: userData.first_name || null,
+            lastName: userData.last_name || null,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.clerkId, userData.id));
+        console.log("[Clerk Webhook] User updated:", userData.id);
         break;
+
       case "user.deleted":
-        // TODO: Soft-delete user in database
-        console.log("[Clerk Webhook] User deleted:", payload.data.id);
+        await db.delete(users).where(eq(users.clerkId, userData.id));
+        console.log("[Clerk Webhook] User deleted:", userData.id);
         break;
+
       default:
-        console.log(`[Clerk Webhook] Unhandled event type: ${eventType}`);
+        console.log(`[Clerk Webhook] Unhandled event: ${eventType}`);
     }
 
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error("[Clerk Webhook] Error:", error);
-    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Webhook processing failed" },
+      { status: 500 }
+    );
   }
 }
