@@ -36,7 +36,7 @@ function PriceBadge({ tier }: { tier: string }) {
     FREE: { label: "FREE", style: "bg-emerald-100 text-emerald-800" },
     "$5_$10": { label: "$5-$10", style: "bg-blue-100 text-blue-800" },
     "$10_$15": { label: "$10-$15", style: "bg-amber-100 text-amber-800" },
-    "$15_plus": { label: "$15+", style: "bg-red-100 text-red-800" },
+    "$15_$20": { label: "$15-$20", style: "bg-red-100 text-red-800" },
   };
 
   const d = display[tier] || { label: tier, style: "bg-stone-100 text-stone-600" };

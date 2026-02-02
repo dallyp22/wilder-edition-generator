@@ -1,6 +1,6 @@
 export const BRAND_CRITERIA = {
   hardFilters: {
-    maxPricePerPerson: 15,
+    maxPricePerPerson: 20,
     rejectChainWithCommercialFocus: true,
     rejectAdultVenues: true,
     rejectNotFamilyAppropriate: true,
@@ -23,7 +23,7 @@ export const BRAND_CRITERIA = {
     FREE: 100,
     "$5_$10": 80,
     "$10_$15": 60,
-    "$15_plus": 20,
+    "$15_$20": 40,
   },
 
   natureKeywords: [
@@ -92,12 +92,12 @@ export const ICON_KEY = {
     FREE: { icon: "🔷", label: "FREE admission" },
     "$5_$10": { icon: "💲", label: "$5-$10/person" },
     "$10_$15": { icon: "💲💲", label: "$10-$15/person" },
-    "$15_plus": { icon: "💲💲💲", label: "$15+/person" },
+    "$15_$20": { icon: "💲💲💲", label: "$15-$20/person" },
   },
   ageGroups: {
     baby: { icon: "👶", label: "Baby-friendly (0-12mo)" },
     toddler: { icon: "🧒", label: "Toddler-safe (1-3yr)" },
-    preschool: { icon: "👦", label: "Preschool+ (3-5yr)" },
+    preschool: { icon: "👦", label: "Preschool+ (3-9yr)" },
   },
   seasonality: {
     warm: { icon: "☀️", label: "Warm weather" },

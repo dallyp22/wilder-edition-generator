@@ -46,7 +46,7 @@ function mapPriceLevel(priceLevel: number | undefined): PriceTier {
   if (priceLevel === undefined || priceLevel === 0) return "FREE";
   if (priceLevel === 1) return "$5_$10";
   if (priceLevel === 2) return "$10_$15";
-  return "$15_plus";
+  return "$15_$20";
 }
 
 function parseAddress(formatted: string): {

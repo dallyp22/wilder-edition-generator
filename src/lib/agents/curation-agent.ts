@@ -1,22 +1,22 @@
 import { Place, PlaceCategory, RawDiscoveryPlace } from "@/lib/types";
 import { callAI, parseJSONFromResponse, generatePlaceId } from "@/lib/utils/ai-client";
 
-const CURATION_SYSTEM_PROMPT = `You are a curation specialist for Wilder Seasons, a family nature brand for families with children ages 0-5.
+const CURATION_SYSTEM_PROMPT = `You are a curation specialist for Wilder Seasons, a family nature brand for families with children ages 0-9.
 
 Your job is to REVIEW a list of places discovered by web search and determine which ones are genuinely good fits for Wilder Seasons. You are NOT discovering new places — only evaluating the ones provided.
 
 ACCEPT places that are:
 - Real, specific venues (not generic descriptions, blog titles, or list articles)
-- Family-friendly for ages 0-5
+- Family-friendly for ages 0-9
 - Locally owned, community-oriented (not chains)
-- FREE or under $15/person
+- FREE or under $20/person
 - Nature-connected, educational, or community-building
 
 REJECT places that are:
 - Chain restaurants or franchises (McDonald's, Starbucks, Chick-fil-A, etc.)
 - Commercial entertainment chains (Chuck E Cheese, Sky Zone, Urban Air, Main Event, Dave & Buster's)
 - Adult venues (bars, breweries, wineries, nightclubs, casinos)
-- Over $15/person admission
+- Over $20/person admission
 - Generic entries that aren't specific places (e.g. "Top 10 Parks in...", "Best Things to Do...")
 - Blog posts, articles, or websites (not actual places)
 - Places that clearly don't exist or seem fabricated
@@ -71,10 +71,10 @@ For each ACCEPTED place return:
 - "shortDescription": warm, nature-connected description in Wilder Seasons voice (max 100 chars)
 - "whyWeLoveIt": one sentence about why families with young kids will love this
 - "insiderTip": a helpful visiting tip for families (max 100 chars)
-- "priceTier": one of "FREE", "$5_$10", "$10_$15"
+- "priceTier": one of "FREE", "$5_$10", "$10_$15", "$15_$20"
 - "babyFriendly": boolean (safe for 0-12 months with stroller)
 - "toddlerSafe": boolean (safe for 1-3 year olds)
-- "preschoolPlus": boolean (engaging for 3-5 year olds)
+- "preschoolPlus": boolean (engaging for 3-9 year olds)
 - "warmWeather": boolean (primarily outdoor/seasonal)
 - "winterSpot": boolean (indoor/year-round)
 
@@ -126,7 +126,7 @@ Return ONLY valid JSON. No explanation text.`;
       phone: "",
       googleRating: null,
       googleReviewCount: null,
-      priceTier: (["FREE", "$5_$10", "$10_$15"].includes(p.priceTier)
+      priceTier: (["FREE", "$5_$10", "$10_$15", "$15_$20"].includes(p.priceTier)
         ? p.priceTier
         : "FREE") as Place["priceTier"],
       priceDetails: "",

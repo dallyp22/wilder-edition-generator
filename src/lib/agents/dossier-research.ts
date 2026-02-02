@@ -50,7 +50,7 @@ export async function callGeminiResearch(
 
 // ── Domain 1: Landscape ──
 
-const LANDSCAPE_PROMPT = `You are a nature researcher for Wilder Seasons, a family nature guide designed for children ages 0-5. Research the landscape and natural geography of {{CITY}}, {{STATE}}.
+const LANDSCAPE_PROMPT = `You are a nature researcher for Wilder Seasons, a family nature guide designed for children ages 0-9. Research the landscape and natural geography of {{CITY}}, {{STATE}}.
 
 Investigate these topics thoroughly using current web sources:
 
@@ -90,7 +90,7 @@ export async function researchLandscape(
 
 // ── Domain 2: Animals ──
 
-const ANIMALS_PROMPT = `You are a nature researcher for Wilder Seasons, a family nature guide designed for children ages 0-5. Research the wildlife and animals of {{CITY}}, {{STATE}}, prioritizing kid-relatable species first.
+const ANIMALS_PROMPT = `You are a nature researcher for Wilder Seasons, a family nature guide designed for children ages 0-9. Research the wildlife and animals of {{CITY}}, {{STATE}}, prioritizing kid-relatable species first.
 
 Investigate these topics thoroughly using current web sources:
 
@@ -130,7 +130,7 @@ export async function researchAnimals(
 
 // ── Domain 3: Plants & Trees ──
 
-const PLANTS_PROMPT = `You are a nature researcher for Wilder Seasons, a family nature guide designed for children ages 0-5. Research the plants, trees, and flora of {{CITY}}, {{STATE}}.
+const PLANTS_PROMPT = `You are a nature researcher for Wilder Seasons, a family nature guide designed for children ages 0-9. Research the plants, trees, and flora of {{CITY}}, {{STATE}}.
 
 Investigate these topics thoroughly using current web sources:
 
@@ -170,7 +170,7 @@ export async function researchPlants(
 
 // ── Domain 4: Food & Agriculture ──
 
-const FOOD_AGRICULTURE_PROMPT = `You are a nature researcher for Wilder Seasons, a family nature guide designed for children ages 0-5. Research the food culture, agriculture, and farm life of {{CITY}}, {{STATE}}.
+const FOOD_AGRICULTURE_PROMPT = `You are a nature researcher for Wilder Seasons, a family nature guide designed for children ages 0-9. Research the food culture, agriculture, and farm life of {{CITY}}, {{STATE}}.
 
 Investigate these topics thoroughly using current web sources:
 
@@ -210,7 +210,7 @@ export async function researchFoodAgriculture(
 
 // ── Domain 5: Weather & Seasons ──
 
-const WEATHER_PROMPT = `You are a nature researcher for Wilder Seasons, a family nature guide designed for children ages 0-5. Research the weather patterns and seasonal cycles of {{CITY}}, {{STATE}}.
+const WEATHER_PROMPT = `You are a nature researcher for Wilder Seasons, a family nature guide designed for children ages 0-9. Research the weather patterns and seasonal cycles of {{CITY}}, {{STATE}}.
 
 Investigate these topics thoroughly using current web sources:
 
@@ -248,7 +248,7 @@ export async function researchWeather(
 
 // ── Domain 6: Local Places & Exploration ──
 
-const LOCAL_PLACES_PROMPT = `You are a nature researcher for Wilder Seasons, a family nature guide designed for children ages 0-5. Research real, specific outdoor and nature-connected places in {{CITY}}, {{STATE}}.
+const LOCAL_PLACES_PROMPT = `You are a nature researcher for Wilder Seasons, a family nature guide designed for children ages 0-9. Research real, specific outdoor and nature-connected places in {{CITY}}, {{STATE}}.
 
 CRITICAL RULE: Every place must cost $15 or less (ideally free). No chain businesses. Only real, locally known destinations.
 
@@ -288,7 +288,7 @@ export async function researchLocalPlaces(
 
 // ── Domain 7: History, Culture & Sense of Place ──
 
-const CULTURE_HISTORY_PROMPT = `You are a nature researcher for Wilder Seasons, a family nature guide designed for children ages 0-5. Research the history, culture, and sense of place of {{CITY}}, {{STATE}}, focusing specifically on connections to LAND and NATURE.
+const CULTURE_HISTORY_PROMPT = `You are a nature researcher for Wilder Seasons, a family nature guide designed for children ages 0-9. Research the history, culture, and sense of place of {{CITY}}, {{STATE}}, focusing specifically on connections to LAND and NATURE.
 
 Investigate these topics thoroughly using current web sources:
 
@@ -326,7 +326,7 @@ export async function researchCultureHistory(
 
 // ── Domain 8: Sensory & Emotional Details ──
 
-const SENSORY_PROMPT = `You are a nature researcher for Wilder Seasons, a family nature guide designed for children ages 0-5. Research the sensory and emotional landscape of {{CITY}}, {{STATE}}. Write with a warm, evocative, wonder-filled Wilder Seasons voice -- like a field journal entry for a parent exploring with their little one.
+const SENSORY_PROMPT = `You are a nature researcher for Wilder Seasons, a family nature guide designed for children ages 0-9. Research the sensory and emotional landscape of {{CITY}}, {{STATE}}. Write with a warm, evocative, wonder-filled Wilder Seasons voice -- like a field journal entry for a parent exploring with their little one.
 
 Investigate these topics thoroughly using current web sources:
 
@@ -364,7 +364,7 @@ export async function researchSensory(
 
 // ── Domain 9: Developmental Tie-Ins ──
 
-const DEVELOPMENTAL_PROMPT = `You are a nature researcher for Wilder Seasons, a family nature guide designed for children ages 0-5. Research developmental opportunities for young children exploring {{CITY}}, {{STATE}}.
+const DEVELOPMENTAL_PROMPT = `You are a nature researcher for Wilder Seasons, a family nature guide designed for children ages 0-9. Research developmental opportunities for young children exploring {{CITY}}, {{STATE}}.
 
 Investigate these topics thoroughly using current web sources:
 
@@ -402,7 +402,7 @@ export async function researchDevelopmental(
 
 // ── Domain 10: Cross-Media Hooks ──
 
-const CROSS_MEDIA_PROMPT = `You are a nature researcher for Wilder Seasons, a family nature guide designed for children ages 0-5. Research cross-media resources -- books, songs, crafts, and science activities -- connected to the natural world of {{CITY}}, {{STATE}}.
+const CROSS_MEDIA_PROMPT = `You are a nature researcher for Wilder Seasons, a family nature guide designed for children ages 0-9. Research cross-media resources -- books, songs, crafts, and science activities -- connected to the natural world of {{CITY}}, {{STATE}}.
 
 Investigate these topics thoroughly using current web sources:
 

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { Place, TemplateSelection, StepProgress, PipelineStep, WeekMatch } from "@/lib/types";
-import { CATEGORIES } from "@/lib/config/categories";
+import type { ThemedResearchResult } from "@/lib/agents/themed-research";
 import { TemplateVersion } from "@/lib/config/weekly-themes";
 import CityInput from "@/components/CityInput";
 import PipelineProgress from "@/components/PipelineProgress";
@@ -11,12 +11,13 @@ import SummaryCards from "@/components/SummaryCards";
 import ResultsTable from "@/components/ResultsTable";
 import WeeklyPlan from "@/components/WeeklyPlan";
 import ExportButton from "@/components/ExportButton";
+import RawResearchPanel from "@/components/RawResearchPanel";
 import { RotateCcw } from "lucide-react";
 
 const INITIAL_STEPS: StepProgress[] = [
   { step: "template", label: "Template Selection", status: "pending" },
-  { step: "discover", label: "Multi-Source Discovery (Brave + Gemini + Grok)", status: "pending" },
-  { step: "curate", label: "AI Curation (Claude reviews places)", status: "pending" },
+  { step: "discover", label: "Themed Research (Grok + Gemini + Brave)", status: "pending" },
+  { step: "curate", label: "Opus Curation (Brand-Aligned Decisions)", status: "pending" },
   { step: "enrich", label: "Google Places Validation", status: "pending" },
   { step: "validate", label: "Brand Scoring + Icons", status: "pending" },
   { step: "match", label: "Week Matching + Anti-Repeat", status: "pending" },
@@ -47,6 +48,7 @@ export function EditionGenerator() {
   const [error, setError] = useState<string | null>(null);
   const [weekMatches, setWeekMatches] = useState<WeekMatch[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [rawResearchData, setRawResearchData] = useState<ThemedResearchResult[]>([]);
 
   const updateStep = useCallback(
     (step: PipelineStep, status: StepProgress["status"], detail?: string) => {
@@ -71,6 +73,7 @@ export function EditionGenerator() {
     setPlaces([]);
     setTemplate(null);
     setWeekMatches([]);
+    setRawResearchData([]);
     setCity(inputCity);
     setState(inputState);
     setSelectedTemplate(templateVersion);
@@ -80,7 +83,7 @@ export function EditionGenerator() {
       if (mode === "demo") {
         await runDemoMode(inputCity, inputState);
       } else {
-        await runLiveMode(inputCity, inputState);
+        await runLiveMode(inputCity, inputState, templateVersion);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "An error occurred";
@@ -110,6 +113,7 @@ export function EditionGenerator() {
     updateStep("curate", "completed", "Sample data pre-curated");
     updateStep("enrich", "completed", "Sample data pre-enriched");
     updateStep("validate", "completed", "Brand scoring complete");
+    updateStep("match", "completed", "Sample week plan loaded");
     updateStep("complete", "completed", `${data.places.length} places compiled`);
 
     setTemplate(data.templateSelection);
@@ -117,7 +121,12 @@ export function EditionGenerator() {
     setShowResults(true);
   };
 
-  const runLiveMode = async (inputCity: string, inputState: string) => {
+  const runLiveMode = async (
+    inputCity: string,
+    inputState: string,
+    templateVersion: TemplateVersion
+  ) => {
+    // ── Step 1: Template Selection ──
     updateStep("template", "running", "Analyzing city characteristics...");
     const templateData = await apiCall("/api/generate/template", {
       city: inputCity,
@@ -126,115 +135,63 @@ export function EditionGenerator() {
     setTemplate(templateData.templateSelection);
     updateStep("template", "completed", templateData.templateSelection.primaryTemplate);
 
-    const grokChannels = ["x_parents", "neighborhoods", "local_blogs", "seasonal"] as const;
-    const totalSources = CATEGORIES.length + grokChannels.length;
-    updateStep("discover", "running", `Searching ${totalSources} sources (Brave + Gemini + Grok)...`);
+    // ── Step 2: Themed Research — 3 AI sources in parallel ──
+    updateStep("discover", "running", "Researching all 52 themes across 3 AI sources...");
     let completedSources = 0;
 
-    // Fire 7 category calls (Brave + Gemini) in parallel
-    const categoryPromises = CATEGORIES.map(async (cat) => {
+    const researchPromises = (["grok", "gemini", "brave"] as const).map(async (source) => {
       try {
-        const resData = await apiCall("/api/generate/discover", {
+        const data = await apiCall("/api/generate/research", {
           city: inputCity,
           state: inputState,
-          category: cat.id,
+          source,
+          templateVersion,
         });
         completedSources++;
-        updateStep(
-          "discover",
-          "running",
-          `${completedSources}/${totalSources} sources searched...`
-        );
-        return resData.places || [];
+        updateStep("discover", "running", `${completedSources}/3 research sources complete...`);
+        return (data.results || []) as ThemedResearchResult[];
       } catch (err) {
-        console.error(`Discovery failed for ${cat.id}:`, err);
+        console.error(`${source} research failed:`, err);
         completedSources++;
-        return [];
+        updateStep("discover", "running", `${completedSources}/3 research sources complete...`);
+        return [] as ThemedResearchResult[];
       }
     });
 
-    // Fire 4 Grok channels in parallel alongside category calls
-    const grokPromises = grokChannels.map(async (channel) => {
-      try {
-        const resData = await apiCall("/api/generate/discover-grok", {
-          city: inputCity,
-          state: inputState,
-          channel,
-        });
-        completedSources++;
-        updateStep(
-          "discover",
-          "running",
-          `${completedSources}/${totalSources} sources searched...`
-        );
-        return resData.places || [];
-      } catch (err) {
-        console.error(`Grok discovery failed for ${channel}:`, err);
-        completedSources++;
-        return [];
-      }
-    });
+    const researchResults = await Promise.all(researchPromises);
+    const allResults: ThemedResearchResult[] = researchResults.flat();
+    setRawResearchData(allResults);
 
-    // Wait for all 11 sources
-    const [categoryResults, grokResults] = await Promise.all([
-      Promise.all(categoryPromises),
-      Promise.all(grokPromises),
-    ]);
-    let rawPlaces = [...categoryResults.flat(), ...grokResults.flat()];
+    const grokCount = allResults.filter((r) => r.source === "grok").length;
+    const geminiCount = allResults.filter((r) => r.source === "gemini").length;
+    const braveCount = allResults.filter((r) => r.source === "brave").length;
+    updateStep(
+      "discover",
+      "completed",
+      `${allResults.length} results (Grok: ${grokCount}, Gemini: ${geminiCount}, Brave: ${braveCount})`
+    );
 
-    const seen = new Set<string>();
-    rawPlaces = rawPlaces.filter((p: { name?: string }) => {
-      const key = (p.name || "").toLowerCase().replace(/[^a-z]/g, "");
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-
-    const grokPlaceCount = grokResults.flat().length;
-    const sourceDetail = grokPlaceCount > 0
-      ? `${rawPlaces.length} places found (${grokPlaceCount} from Grok)`
-      : `${rawPlaces.length} places found from web search`;
-    updateStep("discover", "completed", sourceDetail);
-
-    updateStep("curate", "running", `Claude is reviewing ${rawPlaces.length} places...`);
-    const CURATION_BATCH_SIZE = 25;
-    const curatedPlaces: Partial<Place>[] = [];
-
-    for (let i = 0; i < rawPlaces.length; i += CURATION_BATCH_SIZE) {
-      const batch = rawPlaces.slice(i, i + CURATION_BATCH_SIZE);
-      const batchNum = Math.floor(i / CURATION_BATCH_SIZE) + 1;
-      const totalBatches = Math.ceil(rawPlaces.length / CURATION_BATCH_SIZE);
-      updateStep(
-        "curate",
-        "running",
-        `Claude reviewing batch ${batchNum}/${totalBatches} (${Math.min(i + CURATION_BATCH_SIZE, rawPlaces.length)}/${rawPlaces.length} places)...`
-      );
-
-      try {
-        const curationData = await apiCall("/api/generate/curate", {
-          city: inputCity,
-          state: inputState,
-          rawPlaces: batch,
-        });
-        curatedPlaces.push(...(curationData.places || []));
-      } catch (err) {
-        console.error(`Curation batch ${batchNum} failed:`, err);
-        curatedPlaces.push(
-          ...batch.map((p: { name: string; category: string; snippet: string; sourceUrl: string }) => ({
-            name: p.name,
-            category: p.category as Place["category"],
-            shortDescription: (p.snippet || "").slice(0, 100),
-            city: inputCity,
-            state: inputState,
-            sourceUrl: p.sourceUrl || "",
-            validationStatus: "REVIEW" as const,
-          }))
-        );
-      }
+    if (allResults.length === 0) {
+      throw new Error("No research results from any source. Check API keys and try again.");
     }
 
-    updateStep("curate", "completed", `${curatedPlaces.length} places accepted by Claude`);
+    // ── Step 3: Opus Curation — Claude Opus reviews all raw data ──
+    updateStep("curate", "running", `Claude Opus reviewing ${allResults.length} research results...`);
+    const curationData = await apiCall("/api/generate/curate-opus", {
+      city: inputCity,
+      state: inputState,
+      allResults,
+    });
 
+    const curatedPlaces: Partial<Place>[] = curationData.places || [];
+    const opusWeekPlan = curationData.weekPlan || [];
+    updateStep(
+      "curate",
+      "completed",
+      `${curatedPlaces.length} places curated, ${opusWeekPlan.length} weeks planned`
+    );
+
+    // ── Step 4: Google Places Enrichment ──
     updateStep("enrich", "running", "Validating with Google Places...");
     const BATCH_SIZE = 3;
     const enrichedPlaces: Partial<Place>[] = [];
@@ -260,26 +217,48 @@ export function EditionGenerator() {
 
     updateStep("enrich", "completed", `${enrichedPlaces.length} places validated`);
 
+    // ── Step 5: Brand Scoring ──
     updateStep("validate", "running", "Scoring brand alignment + applying icons...");
     const finalData = await apiCall("/api/generate/finalize", { places: enrichedPlaces });
-    updateStep("validate", "completed", `${finalData.summary.recommended} recommended, ${finalData.summary.consider} consider`);
+    updateStep(
+      "validate",
+      "completed",
+      `${finalData.summary.recommended} recommended, ${finalData.summary.consider} consider`
+    );
 
     setPlaces(finalData.places);
 
+    // ── Step 6: Week Matching (with Opus hints) ──
     updateStep("match", "running", "AI matching + enforcing anti-repeat (max 2 uses per place)...");
     try {
       const matchData = await apiCall("/api/generate/match-weeks", {
         places: finalData.places,
-        templateVersion: selectedTemplate,
+        templateVersion,
         city: inputCity,
+        opusWeekPlan,
       });
       setWeekMatches(matchData.weekMatches || []);
-      updateStep("match", "completed", `52 weeks matched (anti-repeat enforced)`);
+      updateStep("match", "completed", "52 weeks matched (anti-repeat enforced)");
     } catch (err) {
       console.error("Week matching failed:", err);
-      updateStep("match", "completed", "Week matching skipped (using keyword fallback)");
+      // Fall back to Opus week plan if available
+      if (opusWeekPlan.length > 0) {
+        setWeekMatches(
+          opusWeekPlan.map((w: { week: number; placeName: string; reason: string }) => ({
+            week: w.week,
+            placeName: w.placeName,
+            reason: w.reason,
+            alternateName: "",
+            alternateReason: "",
+          }))
+        );
+        updateStep("match", "completed", "Using Opus week plan (matching service unavailable)");
+      } else {
+        updateStep("match", "completed", "Week matching skipped (using keyword fallback)");
+      }
     }
 
+    // ── Step 7: Complete ──
     updateStep(
       "complete",
       "completed",
@@ -295,6 +274,7 @@ export function EditionGenerator() {
     setPlaces([]);
     setTemplate(null);
     setWeekMatches([]);
+    setRawResearchData([]);
     setError(null);
     setSteps(INITIAL_STEPS);
   };
@@ -356,6 +336,8 @@ export function EditionGenerator() {
               <SummaryCards places={places} />
             </div>
           </div>
+
+          <RawResearchPanel results={rawResearchData} />
 
           <WeeklyPlan
             templateVersion={selectedTemplate}

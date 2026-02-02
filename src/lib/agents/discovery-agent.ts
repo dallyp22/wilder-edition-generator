@@ -163,8 +163,8 @@ ${guidance}
 
 Search for actual businesses, parks, libraries, farms, and venues that exist today. Focus on:
 - Locally owned, non-chain establishments
-- Places safe and enjoyable for families with young children (ages 0-5)
-- FREE or low-cost destinations (under $15/person)
+- Places safe and enjoyable for families with young children (ages 0-9)
+- FREE or low-cost destinations (under $20/person)
 - Nature-connected, community-oriented spots
 
 For each place you find, provide:

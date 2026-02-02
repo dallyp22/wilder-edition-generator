@@ -4,7 +4,7 @@ import { callAI, parseJSONFromResponse, normalizeName } from "@/lib/utils/ai-cli
 
 const MAX_USES_PER_PLACE = 2;
 
-const MATCHER_SYSTEM_PROMPT = `You are a week-matching specialist for Wilder Seasons, a family nature brand that creates 52-week adventure guides for families with young children (ages 0-5).
+const MATCHER_SYSTEM_PROMPT = `You are a week-matching specialist for Wilder Seasons, a family nature brand that creates 52-week adventure guides for families with young children (ages 0-9).
 
 Your job is to match real local places to weekly themes, understanding the INTENT and SPIRIT of each theme — not just keyword matching.
 

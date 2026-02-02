@@ -11,7 +11,7 @@ function priceTierDisplay(tier: string): string {
       return "$";
     case "$10_$15":
       return "$$";
-    case "$15_plus":
+    case "$15_$20":
       return "$$$";
     default:
       return tier;

@@ -118,11 +118,6 @@ function calculateLocalScore(place: Partial<Place>): number {
 }
 
 function checkHardFilters(place: Partial<Place>): string | null {
-  // Price check
-  if (place.priceTier === "$15_plus") {
-    return "Admission over $15 per person";
-  }
-
   // Chain with commercial focus
   if (place.isChain) {
     const combined = (place.name || "").toLowerCase();

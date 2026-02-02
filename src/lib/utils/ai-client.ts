@@ -74,6 +74,43 @@ export async function callOpenAI(
   }
 }
 
+export async function callOpus(
+  systemPrompt: string,
+  userPrompt: string,
+  apiKey: string
+): Promise<string> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 50000);
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-opus-4-20250514",
+        max_tokens: 16384,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userPrompt }],
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Opus API error: ${res.status} - ${err}`);
+    }
+
+    const data = await res.json();
+    return data.content[0]?.text || "";
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function callAI(
   systemPrompt: string,
   userPrompt: string,

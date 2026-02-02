@@ -41,7 +41,7 @@ export type PlaceCategory =
   | "garden"
   | "seasonal";
 
-export type PriceTier = "FREE" | "$5_$10" | "$10_$15" | "$15_plus";
+export type PriceTier = "FREE" | "$5_$10" | "$10_$15" | "$15_$20";
 
 export type ValidationStatus =
   | "RECOMMENDED"
