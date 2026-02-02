@@ -77,10 +77,11 @@ export async function callOpenAI(
 export async function callOpus(
   systemPrompt: string,
   userPrompt: string,
-  apiKey: string
+  apiKey: string,
+  options?: { timeoutMs?: number; maxTokens?: number }
 ): Promise<string> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 240000);
+  const timeout = setTimeout(() => controller.abort(), options?.timeoutMs || 240000);
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -92,7 +93,7 @@ export async function callOpus(
       },
       body: JSON.stringify({
         model: "claude-opus-4-20250514",
-        max_tokens: 32000,
+        max_tokens: options?.maxTokens || 32000,
         system: systemPrompt,
         messages: [{ role: "user", content: userPrompt }],
       }),

@@ -194,10 +194,11 @@ function mapPlaces(parsed: OpusCuratedPlace[], city: string, state: string): Par
 async function callSonnetCuration(
   systemPrompt: string,
   userPrompt: string,
-  apiKey: string
+  apiKey: string,
+  timeoutMs: number
 ): Promise<string> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -229,18 +230,22 @@ async function callSonnetCuration(
 }
 
 // ── AI Call with Sonnet Fallback ──
+// Budget: 300s total for the route. Opus gets first shot, Sonnet catches failures.
 
 async function callWithFallback(
   systemPrompt: string,
   userPrompt: string,
   anthropicKey: string,
-  label: string
+  label: string,
+  opusTimeoutMs: number,
+  sonnetTimeoutMs: number
 ): Promise<string> {
   try {
-    return await callOpus(systemPrompt, userPrompt, anthropicKey);
+    console.log(`[Opus Curation] ${label}: trying Opus (${opusTimeoutMs / 1000}s timeout)...`);
+    return await callOpus(systemPrompt, userPrompt, anthropicKey, { timeoutMs: opusTimeoutMs });
   } catch (err) {
     console.error(`[Opus Curation] ${label} Opus failed, falling back to Sonnet:`, err);
-    return await callSonnetCuration(systemPrompt, userPrompt, anthropicKey);
+    return await callSonnetCuration(systemPrompt, userPrompt, anthropicKey, sonnetTimeoutMs);
   }
 }
 
@@ -269,10 +274,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── Call 1: Curate Places Library ──
+    // Time budget: 300s total. Opus gets 150s for places, 80s for weeks.
+    // If Opus fails, Sonnet fallback gets remaining time.
+
+    // ── Call 1: Curate Places Library (heavier — gets more time) ──
     console.log(`[Opus Curation] Starting places curation for ${city}, ${state} (${allResults.length} raw results)`);
     const placesPrompt = buildPlacesPrompt(city, state, allResults);
-    const placesResponse = await callWithFallback(PLACES_SYSTEM_PROMPT, placesPrompt, anthropicKey, "Places");
+    const placesResponse = await callWithFallback(
+      PLACES_SYSTEM_PROMPT, placesPrompt, anthropicKey, "Places",
+      150000, // Opus: 150s
+      90000   // Sonnet fallback: 90s
+    );
     const parsedPlaces = parseJSONFromResponse<OpusCuratedPlace[]>(placesResponse);
 
     if (!Array.isArray(parsedPlaces) || parsedPlaces.length === 0) {
@@ -281,9 +293,13 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Opus Curation] Got ${parsedPlaces.length} curated places, now assigning weeks...`);
 
-    // ── Call 2: Assign 52 Weeks ──
+    // ── Call 2: Assign 52 Weeks (lighter — just names + assignments) ──
     const weeksPrompt = buildWeeksPrompt(city, parsedPlaces, allResults);
-    const weeksResponse = await callWithFallback(WEEKS_SYSTEM_PROMPT, weeksPrompt, anthropicKey, "Weeks");
+    const weeksResponse = await callWithFallback(
+      WEEKS_SYSTEM_PROMPT, weeksPrompt, anthropicKey, "Weeks",
+      80000,  // Opus: 80s
+      60000   // Sonnet fallback: 60s
+    );
     const parsedWeeks = parseJSONFromResponse<OpusWeekPlan[]>(weeksResponse);
 
     const weekPlan = (Array.isArray(parsedWeeks) ? parsedWeeks : []).map((w) => ({
