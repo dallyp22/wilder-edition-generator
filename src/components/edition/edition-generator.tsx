@@ -15,7 +15,7 @@ import { RotateCcw } from "lucide-react";
 
 const INITIAL_STEPS: StepProgress[] = [
   { step: "template", label: "Template Selection", status: "pending" },
-  { step: "discover", label: "Multi-Source Discovery (7 categories)", status: "pending" },
+  { step: "discover", label: "Multi-Source Discovery (Brave + Gemini + Grok)", status: "pending" },
   { step: "curate", label: "AI Curation (Claude reviews places)", status: "pending" },
   { step: "enrich", label: "Google Places Validation", status: "pending" },
   { step: "validate", label: "Brand Scoring + Icons", status: "pending" },
@@ -126,32 +126,61 @@ export function EditionGenerator() {
     setTemplate(templateData.templateSelection);
     updateStep("template", "completed", templateData.templateSelection.primaryTemplate);
 
-    updateStep("discover", "running", "Searching Brave + Gemini for real places...");
-    let completedCategories = 0;
+    const grokChannels = ["x_parents", "neighborhoods", "local_blogs", "seasonal"] as const;
+    const totalSources = CATEGORIES.length + grokChannels.length;
+    updateStep("discover", "running", `Searching ${totalSources} sources (Brave + Gemini + Grok)...`);
+    let completedSources = 0;
 
-    const discoveryPromises = CATEGORIES.map(async (cat) => {
+    // Fire 7 category calls (Brave + Gemini) in parallel
+    const categoryPromises = CATEGORIES.map(async (cat) => {
       try {
         const resData = await apiCall("/api/generate/discover", {
           city: inputCity,
           state: inputState,
           category: cat.id,
         });
-        completedCategories++;
+        completedSources++;
         updateStep(
           "discover",
           "running",
-          `${completedCategories}/${CATEGORIES.length} categories searched...`
+          `${completedSources}/${totalSources} sources searched...`
         );
         return resData.places || [];
       } catch (err) {
         console.error(`Discovery failed for ${cat.id}:`, err);
-        completedCategories++;
+        completedSources++;
         return [];
       }
     });
 
-    const discoveryResults = await Promise.all(discoveryPromises);
-    let rawPlaces = discoveryResults.flat();
+    // Fire 4 Grok channels in parallel alongside category calls
+    const grokPromises = grokChannels.map(async (channel) => {
+      try {
+        const resData = await apiCall("/api/generate/discover-grok", {
+          city: inputCity,
+          state: inputState,
+          channel,
+        });
+        completedSources++;
+        updateStep(
+          "discover",
+          "running",
+          `${completedSources}/${totalSources} sources searched...`
+        );
+        return resData.places || [];
+      } catch (err) {
+        console.error(`Grok discovery failed for ${channel}:`, err);
+        completedSources++;
+        return [];
+      }
+    });
+
+    // Wait for all 11 sources
+    const [categoryResults, grokResults] = await Promise.all([
+      Promise.all(categoryPromises),
+      Promise.all(grokPromises),
+    ]);
+    let rawPlaces = [...categoryResults.flat(), ...grokResults.flat()];
 
     const seen = new Set<string>();
     rawPlaces = rawPlaces.filter((p: { name?: string }) => {
@@ -161,7 +190,11 @@ export function EditionGenerator() {
       return true;
     });
 
-    updateStep("discover", "completed", `${rawPlaces.length} places found from web search`);
+    const grokPlaceCount = grokResults.flat().length;
+    const sourceDetail = grokPlaceCount > 0
+      ? `${rawPlaces.length} places found (${grokPlaceCount} from Grok)`
+      : `${rawPlaces.length} places found from web search`;
+    updateStep("discover", "completed", sourceDetail);
 
     updateStep("curate", "running", `Claude is reviewing ${rawPlaces.length} places...`);
     const CURATION_BATCH_SIZE = 25;

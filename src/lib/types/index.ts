@@ -99,9 +99,17 @@ export interface WeekMatch {
   alternateReason: string;
 }
 
+export type DiscoverySource =
+  | "brave"
+  | "gemini"
+  | "grok_x"
+  | "grok_web"
+  | "grok_blog"
+  | "grok_seasonal";
+
 export interface RawDiscoveryPlace {
   name: string;
-  source: "brave" | "gemini";
+  source: DiscoverySource;
   sourceUrl: string;
   snippet: string;
   category: PlaceCategory;
