@@ -1,13 +1,15 @@
+// Serverless runtime — week matching needs time for AI + anti-repeat enforcement
+export const maxDuration = 300;
+
+import { NextRequest, NextResponse } from "next/server";
 import { matchWeeks } from "@/lib/agents/week-matcher";
 import { TemplateVersion } from "@/lib/config/weekly-themes";
 
-export const runtime = "edge";
-
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const { places, templateVersion, city } = await request.json();
     if (!places || !Array.isArray(places) || !templateVersion || !city) {
-      return Response.json(
+      return NextResponse.json(
         { error: "Places array, templateVersion, and city are required" },
         { status: 400 }
       );
@@ -24,10 +26,10 @@ export async function POST(request: Request) {
       openaiKey
     );
 
-    return Response.json({ weekMatches });
+    return NextResponse.json({ weekMatches });
   } catch (err) {
     console.error("Week matching error:", err);
     const message = err instanceof Error ? err.message : "Week matching failed";
-    return Response.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

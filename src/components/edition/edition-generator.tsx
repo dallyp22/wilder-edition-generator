@@ -230,6 +230,7 @@ export function EditionGenerator() {
 
     // ── Step 6: Week Matching (with Opus hints) ──
     updateStep("match", "running", "AI matching + enforcing anti-repeat (max 2 uses per place)...");
+    let finalWeekMatches: WeekMatch[] = [];
     try {
       const matchData = await apiCall("/api/generate/match-weeks", {
         places: finalData.places,
@@ -237,21 +238,21 @@ export function EditionGenerator() {
         city: inputCity,
         opusWeekPlan,
       });
-      setWeekMatches(matchData.weekMatches || []);
+      finalWeekMatches = matchData.weekMatches || [];
+      setWeekMatches(finalWeekMatches);
       updateStep("match", "completed", "52 weeks matched (anti-repeat enforced)");
     } catch (err) {
       console.error("Week matching failed:", err);
       // Fall back to Opus week plan if available
       if (opusWeekPlan.length > 0) {
-        setWeekMatches(
-          opusWeekPlan.map((w: { week: number; placeName: string; reason: string }) => ({
-            week: w.week,
-            placeName: w.placeName,
-            reason: w.reason,
-            alternateName: "",
-            alternateReason: "",
-          }))
-        );
+        finalWeekMatches = opusWeekPlan.map((w: { week: number; placeName: string; reason: string }) => ({
+          week: w.week,
+          placeName: w.placeName,
+          reason: w.reason,
+          alternateName: "",
+          alternateReason: "",
+        }));
+        setWeekMatches(finalWeekMatches);
         updateStep("match", "completed", "Using Opus week plan (matching service unavailable)");
       } else {
         updateStep("match", "completed", "Week matching skipped (using keyword fallback)");
@@ -266,6 +267,17 @@ export function EditionGenerator() {
     );
 
     setShowResults(true);
+
+    // ── Auto-save to database ──
+    apiCall("/api/editions/save", {
+      city: inputCity,
+      state: inputState,
+      templateVersion,
+      templateSelection: templateData.templateSelection,
+      places: finalData.places,
+      weekMatches: finalWeekMatches,
+      rawResearchCount: allResults.length,
+    }).catch((err) => console.error("Auto-save failed:", err));
   };
 
   const handleReset = () => {
